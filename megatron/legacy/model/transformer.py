@@ -1264,12 +1264,15 @@ class ParallelTransformerLayer(MegatronModule):
         if self.drop_path is None:
             if mlp_bias is not None:
                 mlp_bias = mlp_bias.expand_as(residual)
-            with self.bias_dropout_add_exec_handler():
-                output = bias_dropout_add_func(
-                    mlp_output,
-                    mlp_bias,
-                    residual,
-                    self.hidden_dropout)
+            if mlp_bias is None and self.hidden_dropout <=1e-5:
+                output = mlp_output + residual
+            else: 
+                with self.bias_dropout_add_exec_handler():
+                    output = bias_dropout_add_func(
+                        mlp_output,
+                        mlp_bias,
+                        residual,
+                        self.hidden_dropout)
 
             # Jit compiled function creates 'view' tensor. This tensor
             # potentially gets saved in the MPU checkpoint function context,
