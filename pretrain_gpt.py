@@ -6,7 +6,7 @@ from functools import partial
 from typing import Union
 
 import torch
-from mindspeed_llm import megatron_adaptor
+# from mindspeed_llm import megatron_adaptor
 from megatron.training import get_args
 from megatron.training import print_rank_0
 from megatron.training import get_timers
@@ -19,7 +19,8 @@ from megatron.core.datasets.gpt_dataset import MockGPTDataset, GPTDataset
 from megatron.core.datasets.utils import get_blend_from_list
 import megatron.legacy.model
 from megatron.core.models.gpt import GPTModel
-from mindspeed_llm.training import pretrain
+# from mindspeed_llm.training import pretrain
+from megatron.training import pretrain
 from megatron.core.transformer.spec_utils import import_module
 from megatron.training.utils import (
     get_batch_on_this_cp_rank,
@@ -32,7 +33,7 @@ from megatron.core.models.gpt.gpt_layer_specs import (
     get_gpt_layer_local_spec,
     get_gpt_layer_with_transformer_engine_spec,
 )
-from mindspeed_llm.training.utils import generate_actual_seq_len
+# from mindspeed_llm.training.utils import generate_actual_seq_len
 
 
 def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megatron.legacy.model.GPTModel]:
@@ -92,7 +93,7 @@ def model_provider(pre_process=True, post_process=True) -> Union[GPTModel, megat
             pre_process=pre_process,
             post_process=post_process
         )
-
+    print_rank_0(model)
     return model
 
 
@@ -108,7 +109,9 @@ def get_batch(data_iterator):
     batch = get_batch_on_this_cp_rank(batch)
     return batch.values()
 
+   
 
+    return batch.values()
 def loss_func(loss_mask: torch.Tensor, output_tensor: torch.Tensor):
     """Loss function.
 

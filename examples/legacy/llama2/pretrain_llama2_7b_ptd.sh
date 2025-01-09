@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+# export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
 GPUS_PER_NODE=8
 MASTER_ADDR=localhost
@@ -10,12 +10,12 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-CKPT_SAVE_DIR="your model save ckpt path"
-DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer path"
+CKPT_SAVE_DIR="./llama2/ckpt"
+DATA_PATH="./dataset/processed_text_document"
+TOKENIZER_MODEL="./Llama-2-7b-hf/tokenizer.model"
 CKPT_LOAD_DIR="your model ckpt path"
-TP=1
-PP=2
+TP=8
+PP=1
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -37,10 +37,10 @@ GPT_ARGS="
     --tokenizer-model ${TOKENIZER_MODEL} \
     --seq-length 4096 \
     --max-position-embeddings 4096 \
-    --micro-batch-size 1 \
-    --global-batch-size 256 \
+    --micro-batch-size 2 \
+    --global-batch-size 16 \
     --make-vocab-size-divisible-by 1 \
-    --lr 1.25e-6 \
+    --lr 1e-4 \
     --train-iters 5000 \
     --lr-decay-style cosine \
     --untie-embeddings-and-output-weights \
@@ -50,7 +50,6 @@ GPT_ARGS="
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
     --normalization RMSNorm \
-    --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
     --no-masked-softmax-fusion \
@@ -66,8 +65,6 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --use-distributed-optimizer \
-    --use-fused-swiglu \
-    --use-fused-rotary-pos-emb \
     --overlap-grad-reduce \
     --bf16
 "
@@ -79,9 +76,9 @@ DATA_ARGS="
 
 OUTPUT_ARGS="
     --log-interval 1 \
-    --save-interval 10000 \
+    --save-interval 5000\
     --eval-interval 1000 \
-    --eval-iters 10 \
+    --eval-iters 0 \
 "
 
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
@@ -89,7 +86,5 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --jit-compile \
-    --load $CKPT_LOAD_DIR \
     --save $CKPT_SAVE_DIR \
     | tee logs/train_llama2_7b.log

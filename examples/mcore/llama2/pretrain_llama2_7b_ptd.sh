@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+# export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 
 GPUS_PER_NODE=8
 MASTER_ADDR=localhost
@@ -10,12 +10,12 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-CKPT_SAVE_DIR="your model save ckpt path"
-DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer path"
-CKPT_LOAD_DIR="your model ckpt path"
-TP=1
-PP=2
+CKPT_SAVE_DIR="./ckpt"
+VOCAB_FILE=/workspace/Megatron-LM-main/gpt2-vocab.json
+MERGE_FILE=/workspace/Megatron-LM-main/gpt2-merges.txt
+DATA_PATH=/workspace/datasets/wikipedia_preprocessed/wikipedia_text_document 
+TP=8
+PP=1
 
 DISTRIBUTED_ARGS="
     --nproc_per_node $GPUS_PER_NODE \
@@ -34,12 +34,10 @@ GPT_ARGS="
     --hidden-size 4096 \
     --ffn-hidden-size 11008 \
     --num-attention-heads 32 \
-    --tokenizer-type Llama2Tokenizer \
-    --tokenizer-model ${TOKENIZER_MODEL} \
     --seq-length 4096 \
     --max-position-embeddings 4096 \
     --micro-batch-size 1 \
-    --global-batch-size 256 \
+    --global-batch-size 8 \
     --make-vocab-size-divisible-by 1 \
     --lr 1.25e-6 \
     --train-iters 5000 \
@@ -51,10 +49,8 @@ GPT_ARGS="
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
     --normalization RMSNorm \
-    --use-fused-rmsnorm \
     --swiglu \
     --use-flash-attn \
-    --use-mc2 \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
     --min-lr 1.25e-7 \
@@ -68,14 +64,15 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --use-distributed-optimizer \
-    --use-fused-swiglu \
-    --use-fused-rotary-pos-emb \
     --overlap-grad-reduce \
+    --tokenizer-type GPT2BPETokenizer \
     --bf16
 "
 
 DATA_ARGS="
-    --data-path $DATA_PATH \
+    --data-path $DATA_PATH 
+    --vocab-file $VOCAB_FILE 
+    --merge-file $MERGE_FILE 
     --split 949,50,1
 "
 
@@ -91,6 +88,4 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --load $CKPT_LOAD_DIR \
-    --save $CKPT_SAVE_DIR \
     | tee logs/train_llama2_7b.log

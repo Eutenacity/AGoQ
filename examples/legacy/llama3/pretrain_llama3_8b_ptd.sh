@@ -9,9 +9,9 @@ NNODES=1
 NODE_RANK=0
 WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
-CKPT_SAVE_DIR="your model save ckpt path"
-DATA_PATH="your data path"
-TOKENIZER_MODEL="your tokenizer path"
+# CKPT_SAVE_DIR="/home/MindSpeed-LLM/ckpt/llama3"
+DATA_PATH="/home/MindSpeed-LLM/dataset/llama3_text_document"
+TOKENIZER_MODEL="/home/MindSpeed-LLM/Llama-3-8b-hf/tokenizer.model"
 CKPT_LOAD_DIR="your model ckpt path"
 TP=8
 PP=1
@@ -28,15 +28,12 @@ GPT_ARGS="
     --tensor-model-parallel-size ${TP} \
     --pipeline-model-parallel-size ${PP} \
     --micro-batch-size 2 \
-    --global-batch-size 64 \
+    --global-batch-size 8 \
     --sequence-parallel \
     --use-flash-attn \
     --use-rotary-position-embeddings \
-    --use-fused-rotary-pos-emb \
-    --use-fused-rmsnorm \
-    --use-fused-swiglu \
-    --tokenizer-type PretrainedFromHF \
-    --tokenizer-name-or-path ${TOKENIZER_MODEL} \
+    --tokenizer-type Llama3Tokenizer \
+    --tokenizer-model ${TOKENIZER_MODEL} \
     --num-layers 32 \
     --hidden-size 4096 \
     --ffn-hidden-size 14336 \
@@ -52,14 +49,13 @@ GPT_ARGS="
     --init-method-std 0.01 \
     --hidden-dropout 0.0 \
     --position-embedding-type rope \
-    --rotary-base 500000 \
     --normalization RMSNorm \
     --norm-epsilon 1e-5 \
     --swiglu \
     --no-masked-softmax-fusion \
     --attention-softmax-in-fp32 \
-    --lr 1.25e-6 \
-    --train-iters 2000 \
+    --lr 1e-4 \
+    --train-iters 5000 \
     --lr-decay-style cosine \
     --min-lr 1.25e-7 \
     --weight-decay 1e-1 \
@@ -80,8 +76,8 @@ DATA_ARGS="
 "
 
 OUTPUT_ARGS="
-    --log-interval 1 \
-    --save-interval 10000 \
+    --log-interval 10 \
+    --save-interval 5000 \
     --eval-interval 10000 \
     --eval-iters 0 \
 "
@@ -91,6 +87,5 @@ torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $DATA_ARGS \
     $OUTPUT_ARGS \
     --distributed-backend nccl \
-    --load ${CKPT_LOAD_DIR} \
-    --save ${CKPT_SAVE_DIR} \
+    # --save ${CKPT_SAVE_DIR} \
     | tee logs/train_llama3_8b.log
