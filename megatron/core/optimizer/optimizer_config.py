@@ -1,10 +1,6 @@
-# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
-
 from dataclasses import dataclass
 from typing import Callable, Optional
-
 import torch
-
 
 @dataclass
 class OptimizerConfig:
@@ -13,8 +9,8 @@ class OptimizerConfig:
     ##############
     # General
     ##############
-    optimizer: str = 'adam'
-    """Optimizer to use (one of Adam or SGD)."""
+    optimizer: str = 'adam8bit'
+    """Optimizer to use (one of Adam, Adam8bit, or SGD)."""
 
     lr: Optional[float] = None
     """Initial learning rate. Depending on decay style and initial warmup, the learning rate at each
@@ -22,13 +18,13 @@ class OptimizerConfig:
     """
 
     min_lr: Optional[float] = None
-    """Minumum value for learning rate. The scheduler clip values below this threshold."""
+    """Minimum value for learning rate. The scheduler clips values below this threshold."""
 
     decoupled_lr: Optional[float] = None
     """Separate learning rate for the input and output layer."""
 
     decoupled_min_lr: Optional[float] = None
-    """Minimum value for learning rate for the input and output layer. The scheduler clip values
+    """Minimum value for learning rate for the input and output layer. The scheduler clips values
        below this threshold.
     """
 
@@ -45,7 +41,7 @@ class OptimizerConfig:
     """If true, train with bf16 mixed precision training. Defaults to False."""
 
     params_dtype: torch.dtype = torch.float32
-    """dtype used when intializing the weights. Defaults to torch.float32."""
+    """dtype used when initializing the weights. Defaults to torch.float32."""
 
     ###############
     # Loss scaling
@@ -84,7 +80,14 @@ class OptimizerConfig:
     adam_eps: float = 1e-08
     """Term added to the denominator to improve numerical stability in Adam optimizer."""
 
-    # SGD.
+    # Adam8bit-specific
+    optim_bits: int = 8
+    """Specifies the number of bits to use for optimizer states. Defaults to 8."""
+
+    min_8bit_size: int = 4096
+    """Minimum tensor size for quantization. Tensors smaller than this will not be quantized."""
+
+    # SGD
     sgd_momentum: float = 0.9
     """Momentum factor for SGD optimizer."""
 

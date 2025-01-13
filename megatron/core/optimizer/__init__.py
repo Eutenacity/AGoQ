@@ -5,6 +5,7 @@ from typing import Callable, Dict, List, Optional
 import torch
 from apex.optimizers import FusedAdam as Adam
 from apex.optimizers import FusedSGD as SGD
+from bitsandbytes.optim import Adam8bit
 
 from megatron.core import mpu
 
@@ -194,6 +195,17 @@ def _get_megatron_optimizer_based_on_param_groups(
             lr=config.lr,
             weight_decay=config.weight_decay,
             momentum=config.sgd_momentum,
+        )
+        init_state_fn = None
+    elif config.optimizer == 'adam8bit':
+        optimizer = Adam8bit(
+            param_groups,
+            lr=config.lr,
+            weight_decay=config.weight_decay,
+            betas=(config.adam_beta1, config.adam_beta2),
+            eps=config.adam_eps,
+            optim_bits=config.optim_bits,
+            min_8bit_size=config.min_8bit_size,
         )
         init_state_fn = None
     else:
