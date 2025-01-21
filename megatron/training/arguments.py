@@ -287,7 +287,8 @@ def validate_args(args, defaults={}):
             if args.rank == 0:
                 print('accumulate and all-reduce gradients in fp32 for '
                       'bfloat16 data type.', flush=True)
-
+        args.accumulate_allreduce_grads_in_fp32 = False
+        
     if args.rank == 0:
         print('using {} for parameters ...'.format(args.params_dtype),
               flush=True)
@@ -1071,8 +1072,8 @@ def _add_training_args(parser):
     group.add_argument('--add-qkv-bias', action='store_true',
                        help='Enable bias only in the QKV linear layers',
                        dest='add_qkv_bias')
-    group.add_argument('--optimizer', type=str, default='adam8bit',
-                       choices=['adam', 'sgd', 'adam8bit'],
+    group.add_argument('--optimizer', type=str, default='adamW4bit',
+                       choices=['adam', 'sgd', 'adam8bit', 'adamW4bit'],
                        help='Optimizer function')
     group.add_argument('--dataloader-type', type=str, default=None,
                        choices=['single', 'cyclic', 'external'],

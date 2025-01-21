@@ -6,6 +6,7 @@ import torch
 from apex.optimizers import FusedAdam as Adam
 from apex.optimizers import FusedSGD as SGD
 from bitsandbytes.optim import Adam8bit
+from lpmm.optim import AdamW as AdamW4bit
 
 from megatron.core import mpu
 
@@ -206,6 +207,15 @@ def _get_megatron_optimizer_based_on_param_groups(
             eps=config.adam_eps,
             optim_bits=config.optim_bits,
             min_8bit_size=config.min_8bit_size,
+        )
+        init_state_fn = None
+    elif config.optimizer == 'adamW4bit':
+        optimizer = AdamW4bit(
+            param_groups,
+            lr=config.lr,
+            weight_decay=config.weight_decay,
+            betas=(config.adam_beta1, config.adam_beta2),
+            eps=config.adam_eps,
         )
         init_state_fn = None
     else:

@@ -34,14 +34,14 @@ GPT_ARGS="
     --use-rotary-position-embeddings \
     --tokenizer-type Llama3Tokenizer \
     --tokenizer-model ${TOKENIZER_MODEL} \
-    --num-layers 32 \
+    --num-layers 4 \
     --hidden-size 4096 \
     --ffn-hidden-size 14336 \
     --num-attention-heads 32 \
     --group-query-attention \
     --num-query-groups 8 \
-    --seq-length 8192 \
-    --max-position-embeddings 8192 \
+    --seq-length 16384 \
+    --max-position-embeddings 16384 \
     --make-vocab-size-divisible-by 16032 \
     --untie-embeddings-and-output-weights \
     --disable-bias-linear \
@@ -75,17 +75,49 @@ DATA_ARGS="
     --split 100,0,0
 "
 
-OUTPUT_ARGS="
-    --log-interval 10 \
-    --save-interval 5000 \
-    --eval-interval 10000 \
-    --eval-iters 0 \
-"
+# OUTPUT_ARGS="
+#     --log-interval 10 \
+#     --save-interval 5000 \
+#     --eval-interval 10000 \
+#     --eval-iters 0 \
+# "
 
+OUTPUT_ARGS="\
+    --log-interval 10 \
+    --save-interval 10000 \
+    --eval-interval 1000 \
+    --tensorboard-dir /workspace/Megatron-LM-core7/logs/tensorboard_1 \
+    --log-batch-size-to-tensorboard \
+    --log-memory-to-tensorboard \
+    --log-timers-to-tensorboard \
+    --log-validation-ppl-to-tensorboard \
+    --log-world-size-to-tensorboard \
+    --tensorboard-queue-size 1000 \
+    --tensorboard-log-interval 10 \
+    --wandb-exp-name origin \
+    --wandb-project huawei \
+    --wandb-save-dir /workspace/Megatron-LM-core7/logs/wandb_1
+"
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
+    --optimizer adamW4bit \
     --distributed-backend nccl \
+
+# torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+#     $GPT_ARGS \
+#     $DATA_ARGS \
+#     $OUTPUT_ARGS \
+#     --optimizer adam \
+#     --distributed-backend nccl \
+
+
+# torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
+#     $GPT_ARGS \
+#     $DATA_ARGS \
+#     $OUTPUT_ARGS \
+#     --optimizer adam8bit \
+#     --distributed-backend nccl \
     # --save ${CKPT_SAVE_DIR} \
-    | tee logs/train_llama3_8b.log
+    # | tee logs/train_llama3_8b.log
