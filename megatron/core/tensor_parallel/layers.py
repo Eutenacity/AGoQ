@@ -641,7 +641,7 @@ class OffloadReload(torch.autograd.Function):
         ctx.input_shape = hidden_state.shape
 
         with torch.no_grad():
-            q_input, q_bit, q_scale, q_min = op_quantize(hidden_state.data, 4, 1)
+            q_input, q_bit, q_scale, q_min = op_quantize(hidden_state.data.half(), 4, 1)
             nbytes = q_input.nbytes
         
 
@@ -657,7 +657,7 @@ class OffloadReload(torch.autograd.Function):
 
         with torch.no_grad():
             q_inputs = [ctx.q_input, ctx.q_bit, ctx.q_scale, ctx.q_min]
-            ret = op_dequantize(q_inputs, ctx.input_shape)
+            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
         
         # ret = torch.as_tensor(OffloadReload.gpu_storage[:ctx.hidden_state.nbytes],dtype = ctx.hidden_state.dtype,device =ctx.device ).view(ctx.hidden_state.shape)
         ctx.hidden_state.data.copy_(ret) 
@@ -674,7 +674,7 @@ class CustomLN_Pre(torch.autograd.Function):
         with torch.no_grad():
             out = ln_fun(input_)
 
-            q_input, q_bit, q_scale, q_min = op_quantize(input_.data, 8, 1)
+            q_input, q_bit, q_scale, q_min = op_quantize(input_.data.half(), 8, 1)
           
         out = out.detach()
         out.requires_grad = True
@@ -702,7 +702,7 @@ class CustomLN_Post(torch.autograd.Function):
         ctx.device = hidden_state.device
         
         if OffloadReload.gpu_storage is None:
-            OffloadReload.gpu_storage = torch.UntypedStorage(8192*11008*3,device = ctx.device)
+            OffloadReload.gpu_storage = torch.UntypedStorage(8192*8192*4*3,device = ctx.device)
        
         ctx.input_shape = hidden_state.shape
         
@@ -710,7 +710,7 @@ class CustomLN_Post(torch.autograd.Function):
 
         ctx.hidden_state = hidden_state
 
-
+        
         hidden_state.data = torch.as_tensor(OffloadReload.gpu_storage[:hidden_state.nbytes],dtype = hidden_state.dtype,device =ctx.device ).view(hidden_state.shape)
         
         
@@ -719,7 +719,7 @@ class CustomLN_Post(torch.autograd.Function):
         
         with torch.no_grad():
             q_inputs = ctx.share_list[0]
-            ret = op_dequantize(q_inputs, ctx.input_shape)
+            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
         
         ret.requires_grad = True
         ret.retain_grad()
@@ -981,10 +981,10 @@ class ColumnParallelLinear(torch.nn.Module):
             allreduce_dgrad=allreduce_dgrad,
         )
         if ln_fun is None:
-            output_parallel= OffloadReload.apply(output_parallel,input_)
+            output_parallel= OffloadReload.apply(output_parallel,input_parallel)
         else:
             # output_parallel= OffloadReload.apply(output_parallel,input_)
-            output_parallel = CustomLN_Post.apply(output_parallel,input_,ln_fun,share_list)
+            output_parallel = CustomLN_Post.apply(output_parallel,input_parallel,ln_fun,share_list)
         if self.gather_output:
             # All-gather across the partitions.
             assert not self.sequence_parallel
@@ -1013,18 +1013,18 @@ class CustomACT_Pre(torch.autograd.Function):
     @staticmethod
     def forward(ctx,input_,act_fun,share_list):
         ctx.share_list = share_list
-        
 
         with torch.no_grad():
             out = act_fun(input_)
 
-            q_input, q_bit, q_scale, q_min = op_quantize(input_.data, 8, 1)
+            q_input, q_bit, q_scale, q_min = op_quantize(input_.data.half(), 8, 1)
           
         out = out.detach()
         out.requires_grad = True
 
         q_inputs = q_input, q_bit, q_scale, q_min
         share_list[0] = q_inputs
+        share_list[3] = input_.shape
         
         return out
 
@@ -1036,6 +1036,7 @@ class CustomACT_Pre(torch.autograd.Function):
         ctx.share_list[0] = None
         ctx.share_list[1] = None
         ctx.share_list[2] = None
+        ctx.share_list[3] = None
         return out_grad,None,None
 
 class CustomACT_Post(torch.autograd.Function):
@@ -1047,25 +1048,25 @@ class CustomACT_Post(torch.autograd.Function):
         ctx.device = hidden_state.device
         
         if OffloadReload.gpu_storage is None:
-            OffloadReload.gpu_storage = torch.UntypedStorage(8192*11008*3,device = ctx.device)
+            OffloadReload.gpu_storage = torch.UntypedStorage(8192*8192*4*3,device = ctx.device)
        
-        ctx.input_shape = hidden_state.shape
+        ctx.input_shape = ctx.share_list[3]
         
 
-
+       
         ctx.hidden_state = hidden_state
 
-
+       
         hidden_state.data = torch.as_tensor(OffloadReload.gpu_storage[:hidden_state.nbytes],dtype = hidden_state.dtype,device =ctx.device ).view(hidden_state.shape)
-        
+    
         
         return output
     def backward(ctx,grad):
         
         with torch.no_grad():
             q_inputs = ctx.share_list[0]
-            ret = op_dequantize(q_inputs, ctx.input_shape)
-        
+            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
+      
         ret.requires_grad = True
         ret.retain_grad()
         ctx.share_list[1] = ret
@@ -1223,7 +1224,7 @@ class RowParallelLinear(torch.nn.Module):
             - output
             - bias
         """
-        share_list = [None,None,None]
+        share_list = [None,None,None,None]
         if act_fun is not None:
             # input_ = act_fun(input_)
             input_ = CustomACT_Pre.apply(input_,act_fun,share_list)
@@ -1258,10 +1259,10 @@ class RowParallelLinear(torch.nn.Module):
             allreduce_dgrad=allreduce_dgrad,
         )
         if act_fun is None:
-            output_parallel= OffloadReload.apply(output_parallel,input_)
+            output_parallel= OffloadReload.apply(output_parallel,input_parallel)
         else:
             # output_parallel= OffloadReload.apply(output_parallel,input_)
-            output_parallel = CustomACT_Post.apply(output_parallel,input_,act_fun,share_list)
+            output_parallel = CustomACT_Post.apply(output_parallel,input_parallel,act_fun,share_list)
         # All-reduce across all the partitions.
         if self.explicit_expert_comm:
             assert self.skip_bias_add

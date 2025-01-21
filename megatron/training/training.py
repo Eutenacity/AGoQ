@@ -185,7 +185,7 @@ def pretrain(train_valid_test_dataset_provider,
         args_defaults: a dictionary from argument-name to argument-value. It
             to set already parse arguments.
     """
-
+    # torch.cuda.memory._record_memory_history()
     # Initalize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(extra_args_provider=extra_args_provider,
                         args_defaults=args_defaults)
@@ -286,7 +286,8 @@ def pretrain(train_valid_test_dataset_provider,
         print_rank_0('skipping training (--skip-train is on) ...')
 
         iteration = args.iteration
-
+    # rank_id = torch.distributed.get_rank()
+    # torch.cuda.memory._dump_snapshot("gpu.pickle"+str(rank_id))
     if args.do_valid:
         prefix = f'iteration {iteration} on validation set'
         evaluate_and_print_results(prefix, forward_step_func,
