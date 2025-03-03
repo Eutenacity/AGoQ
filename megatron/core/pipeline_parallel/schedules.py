@@ -392,6 +392,9 @@ def forward_backward_no_pipelining(
             )
             total_num_tokens += num_tokens.item()
             if not forward_only:
+                # 可视化计算图
+                # from torchviz import make_dot
+                # make_dot(output_tensor, params=dict(model.named_parameters())).render("graph")
                 backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config)
 
     # Run computation for last microbatch out of context handler (want to
@@ -415,12 +418,25 @@ def forward_backward_no_pipelining(
     if not forward_only:
         backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config)
 
+    # from ..utils import get_attr_wrapped_model
+
+    # for param in get_attr_wrapped_model(model, 'named_parameters')() :
+    #         grad = param[1].main_grad.value
+    #         print('model_chunk')
+    #         print(grad.dtype) 
+
     if config.finalize_model_grads_func is not None and not forward_only:
         # Finalize model grads (perform full grad all-reduce / reduce-scatter for
         # data parallelism and layernorm all-reduce for sequence parallelism).
         config.finalize_model_grads_func(
             [model], total_num_tokens if config.calculate_per_token_loss else None
         )
+            # from ..utils import get_attr_wrapped_model
+
+    # for param in get_attr_wrapped_model(model, 'named_parameters')() :
+    #         grad = param[1].main_grad.value
+    #         print('model_chunk')
+    #         print(grad.dtype) 
 
     if config.timers is not None:
         config.timers('forward-backward').stop()

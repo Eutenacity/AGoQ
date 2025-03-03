@@ -219,10 +219,33 @@ def train_valid_test_datasets_provider(train_val_test_num_samples):
 
     return train_ds, valid_ds, test_ds
 
+import faulthandler
+import threading
+import time
+import signal
+import sys
+def auto_dump_stack(interval=5):
+    while True:
+        time.sleep(interval)
+        print("\n===== 自动输出堆栈信息 =====")
+        faulthandler.dump_traceback()
 
 def main():
     # Temporary for transition to core datasets
     train_valid_test_datasets_provider.is_distributed = True
+    # # 启用 faulthandler，输出到标准错误
+    # faulthandler.enable(file=sys.stderr)
+    
+    # # 注册 SIGUSR1 信号用于手动触发
+    # faulthandler.register(signal.SIGUSR1)
+    
+    # # 启动自动输出线程（每5秒一次）
+    # monitor_thread = threading.Thread(
+    #     target=auto_dump_stack,
+    #     args=(5,),
+    #     daemon=True
+    # )
+    # monitor_thread.start()
 
     pretrain(train_valid_test_datasets_provider,
              model_provider,

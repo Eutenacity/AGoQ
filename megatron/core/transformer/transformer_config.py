@@ -17,6 +17,8 @@ class TransformerConfig(ModelParallelConfig):
 
     The initialization function has an argument for each parameter, including those in ModelParallelConfig.
     """
+    # add all-reduce dtype
+    grad_reduce_in_fp8: bool = True
 
     ####################
     # model architecture

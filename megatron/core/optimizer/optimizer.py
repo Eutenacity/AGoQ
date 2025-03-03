@@ -492,12 +492,62 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                 main_data.append(main_param.data)
         return model_data, main_data
 
+    def _dequantize_e4m3(self, fp8_tensor, scale_inv):
+        """
+        将 FP8 E4M3 格式张量反量化为 FP32 数值。
+
+        参数：
+        fp8_tensor (torch.Tensor): uint8 类型的 FP8 编码张量，每个元素为 FP8 格式的表示
+        scale_inv (float): 缩放因子的逆，即 1/scale，用于还原原始数值
+
+        返回：
+        torch.Tensor: FP32 格式的还原张量
+        """
+        # 提取符号位（最高位），0 表示正，1 表示负
+        sign = (fp8_tensor >> 7) & 0x1
+        # 提取指数部分：4 位，位于 bit6~bit3
+        exponent = (fp8_tensor >> 3) & 0xF
+        # 提取尾数部分：3 位，位于 bit2~bit0
+        mantissa = fp8_tensor & 0x7
+
+        # 对应 E4M3 格式，指数偏置通常为 7
+        bias = 7
+
+        # 将各部分转换为浮点数
+        sign = sign.to(torch.float32)
+        exponent = exponent.to(torch.float32)
+        mantissa = mantissa.to(torch.float32)
+
+        # 计算符号因子：0 对应正，1 对应负
+        sign_factor = torch.where(sign == 0, torch.tensor(1.0, device=fp8_tensor.device), torch.tensor(-1.0, device=fp8_tensor.device))
+
+        # 对于正规化数值，FP8 表示：
+        #  value = (-1)^sign * 2^(exponent - bias) * (1 + mantissa/8)
+        # 这里假设所有数值都是正规化（未处理 subnormal、零、NaN、Inf 等情况）
+        value = sign_factor * (2 ** (exponent - bias)) * (1.0 + mantissa / 8.0)
+
+        # 应用逆缩放因子以还原原始数值
+        # 如果量化时执行了：scaled = original * scale
+        # 则反量化时需：original = value / scale = value * scale_inv
+        value = value * scale_inv
+
+        return value
+
     def _copy_model_grads_to_main_grads(self):
         # This only needs to be done for the float16 group.
         for model_group, main_group in zip(self.float16_groups, self.fp32_from_float16_groups):
             for model_param, main_param in zip(model_group, main_group):
                 if hasattr(model_param, 'main_grad'):
-                    main_param.grad = model_param.main_grad.float()
+                    # print('model_param.main_grad.value.dtype')
+                    # print(model_param.main_grad.value.dtype)
+                    main_param.grad = self._dequantize_e4m3(model_param.main_grad.value, model_param.main_grad.meta.scale_inv)
+                    # main_param.grad = model_param.main_grad.value.to(torch.float)
+                    model_param.main_grad.value.fill_(0)
+                    model_param.main_grad.meta.scale.fill_(1)
+                    model_param.main_grad.meta.scale_inv.fill_(1)
+                    model_param.main_grad.meta.amax.fill_(0)
+                    model_param.main_grad.meta.amax_counter.fill_(0)
+                    
                 else:
                     if model_param.grad is not None:
                         main_param.grad = model_param.grad.float()

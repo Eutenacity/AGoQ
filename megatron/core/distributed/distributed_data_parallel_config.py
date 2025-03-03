@@ -11,6 +11,9 @@ class DistributedDataParallelConfig:
     grad_reduce_in_fp32: bool = False
     """If true, reduce grads in fp32."""
 
+    grad_reduce_in_fp8: bool = False
+    """If true, reduce grads in fp8."""
+
     overlap_grad_reduce: bool = False
     """If true, overlap grad all-reduce / reduce-scatter with backward compute."""
 

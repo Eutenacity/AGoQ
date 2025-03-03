@@ -2,7 +2,7 @@
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
-GPUS_PER_NODE=8
+GPUS_PER_NODE=2
 MASTER_ADDR=localhost
 MASTER_PORT=6000
 NNODES=1
@@ -13,7 +13,7 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 DATA_PATH="/home/MindSpeed-LLM/dataset/llama3_text_document"
 TOKENIZER_MODEL="/home/MindSpeed-LLM/Llama-3-8b-hf/tokenizer.model"
 CKPT_LOAD_DIR="your model ckpt path"
-TP=8
+TP=2
 PP=1
 
 DISTRIBUTED_ARGS="
@@ -34,12 +34,12 @@ GPT_ARGS="
     --use-rotary-position-embeddings \
     --tokenizer-type Llama3Tokenizer \
     --tokenizer-model ${TOKENIZER_MODEL} \
-    --num-layers 32 \
+    --num-layers 1 \
     --hidden-size 4096 \
     --ffn-hidden-size 14336 \
     --num-attention-heads 32 \
     --group-query-attention \
-    --num-query-groups 8 \
+    --num-query-groups 2 \
     --seq-length 8192 \
     --max-position-embeddings 8192 \
     --make-vocab-size-divisible-by 16032 \
@@ -68,9 +68,10 @@ GPT_ARGS="
     --no-load-optim \
     --no-load-rng \
     --transformer-impl local \
-    --bf16
+    --bf16 \
+    --accumulate-allreduce-grads-in-fp8
 "
-
+    # --accumulate-allreduce-grads-in-fp8
 DATA_ARGS="
     --data-path $DATA_PATH \
     --split 100,0,0
@@ -83,10 +84,27 @@ OUTPUT_ARGS="
     --eval-iters 0 \
 "
 
+# OUTPUT_ARGS="\
+#     --log-interval 10 \
+#     --save-interval 10000 \
+#     --eval-interval 1000 \
+#     --tensorboard-dir /workspace/Megatron-LM-core7/logs/tensorboard_1 \
+#     --log-batch-size-to-tensorboard \
+#     --log-memory-to-tensorboard \
+#     --log-timers-to-tensorboard \
+#     --log-validation-ppl-to-tensorboard \
+#     --log-world-size-to-tensorboard \
+#     --tensorboard-queue-size 1000 \
+#     --tensorboard-log-interval 10 \
+#     --wandb-exp-name origin \
+#     --wandb-project huawei \
+#     --wandb-save-dir /workspace/Megatron-LM-core7/logs/wandb_1
+# "
+
 torchrun $DISTRIBUTED_ARGS pretrain_gpt.py \
     $GPT_ARGS \
     $DATA_ARGS \
     $OUTPUT_ARGS \
-    --optimizer adamW4bit \
+    --optimizer adam8bit \
     --distributed-backend nccl \
     | tee logs/train_llama3_8b.log

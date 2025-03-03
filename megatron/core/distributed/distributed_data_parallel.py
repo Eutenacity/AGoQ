@@ -12,6 +12,7 @@ from ..transformer.transformer_config import TransformerConfig
 from .distributed_data_parallel_config import DistributedDataParallelConfig
 from .param_and_grad_buffer import ParamAndGradBuffer
 
+from megatron.core.msamp.operators.arithmetic import Arithmetic
 logger = getLogger(__name__)
 
 
@@ -197,7 +198,7 @@ class DistributedDataParallel(MegatronModule):
                 if param.grad is not None and (
                     not param.grad_added_to_main_grad or getattr(param, 'zero_out_wgrad', False)
                 ):
-                    param.main_grad.add_(param.grad.data)
+                    Arithmetic.add_to_fp8(param.main_grad.value, param.main_grad.meta, param.grad.data)                   
                 param.grad = None
 
                 if self.ddp_config.overlap_grad_reduce:

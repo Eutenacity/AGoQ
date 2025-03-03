@@ -1,0 +1,929 @@
+tee: logs/train_llama3_8b.log: No such file or directory
+W0224 13:07:14.814000 52676 site-packages/torch/distributed/run.py:793] 
+W0224 13:07:14.814000 52676 site-packages/torch/distributed/run.py:793] *****************************************
+W0224 13:07:14.814000 52676 site-packages/torch/distributed/run.py:793] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0224 13:07:14.814000 52676 site-packages/torch/distributed/run.py:793] *****************************************
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:265: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  def forward(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:277: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  def backward(ctx, grad_output):
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:364: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  def forward(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:401: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  def backward(ctx, grad_output):
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:265: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  def forward(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:277: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  def backward(ctx, grad_output):
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:364: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+  def forward(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:401: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+  def backward(ctx, grad_output):
+[WARNING  | root               ]: Supported flash-attn versions are >= 2.1.1, <= 2.6.3. Found flash-attn 2.7.3.
+[WARNING  | root               ]: Supported flash-attn versions are >= 2.1.1, <= 2.6.3. Found flash-attn 2.7.3.
+using world size: 2, data-parallel size: 1, context-parallel size: 1 tensor-model-parallel size: 2, pipeline-model-parallel size: 1 
+WARNING: Setting args.overlap_p2p_comm to False since non-interleaved schedule does not support overlapping p2p communication
+using torch.bfloat16 for parameters ...
+------------------------ arguments ------------------------
+  accumulate_allreduce_grads_in_fp32 .............. False
+  accumulate_allreduce_grads_in_fp8 ............... True
+  adam_beta1 ...................................... 0.9
+  adam_beta2 ...................................... 0.95
+  adam_eps ........................................ 1e-08
+  add_bias_linear ................................. False
+  add_position_embedding .......................... True
+  add_qkv_bias .................................... False
+  adlr_autoresume ................................. False
+  adlr_autoresume_interval ........................ 1000
+  apply_layernorm_1p .............................. False
+  apply_query_key_layer_scaling ................... False
+  apply_residual_connection_post_layernorm ........ False
+  apply_rope_fusion ............................... True
+  async_save ...................................... None
+  async_tensor_model_parallel_allreduce ........... False
+  attention_dropout ............................... 0.0
+  attention_softmax_in_fp32 ....................... True
+  auto_detect_ckpt_format ......................... False
+  barrier_with_L1_time ............................ True
+  bert_binary_head ................................ True
+  bert_embedder_type .............................. megatron
+  bert_load ....................................... None
+  bf16 ............................................ True
+  bias_dropout_fusion ............................. True
+  bias_gelu_fusion ................................ False
+  bias_swiglu_fusion .............................. True
+  biencoder_projection_dim ........................ 0
+  biencoder_shared_query_context_model ............ False
+  block_data_path ................................. None
+  calculate_per_token_loss ........................ False
+  check_for_nan_in_loss_and_grad .................. True
+  check_weight_hash_across_dp_replicas_interval ... None
+  ckpt_assume_constant_structure .................. False
+  ckpt_fully_parallel_load ........................ False
+  ckpt_fully_parallel_save ........................ False
+  ckpt_step ....................................... None
+  classes_fraction ................................ 1.0
+  clip_grad ....................................... 1.0
+  clone_scatter_output_in_embedding ............... True
+  consumed_train_samples .......................... 0
+  consumed_valid_samples .......................... 0
+  context_parallel_size ........................... 1
+  create_attention_mask_in_dataloader ............. True
+  data_cache_path ................................. None
+  data_parallel_random_init ....................... False
+  data_parallel_size .............................. 1
+  data_path ....................................... ['/home/MindSpeed-LLM/dataset/llama3_text_document']
+  data_per_class_fraction ......................... 1.0
+  data_sharding ................................... True
+  dataloader_type ................................. single
+  ddp_bucket_size ................................. None
+  decoder_num_layers .............................. None
+  decoder_seq_length .............................. None
+  decoupled_lr .................................... None
+  decoupled_min_lr ................................ None
+  delay_grad_reduce ............................... True
+  delay_param_gather .............................. False
+  dino_bottleneck_size ............................ 256
+  dino_freeze_last_layer .......................... 1
+  dino_head_hidden_size ........................... 2048
+  dino_local_crops_number ......................... 10
+  dino_local_img_size ............................. 96
+  dino_norm_last_layer ............................ False
+  dino_teacher_temp ............................... 0.07
+  dino_warmup_teacher_temp ........................ 0.04
+  dino_warmup_teacher_temp_epochs ................. 30
+  disable_straggler_on_startup .................... False
+  dist_ckpt_format ................................ torch_dist
+  distribute_saved_activations .................... False
+  distributed_backend ............................. nccl
+  distributed_timeout_minutes ..................... 10
+  embedding_path .................................. None
+  empty_unused_memory_level ....................... 0
+  enable_one_logger ............................... False
+  encoder_num_layers .............................. 8
+  encoder_seq_length .............................. 8192
+  end_weight_decay ................................ 0.1
+  eod_mask_loss ................................... False
+  eval_interval ................................... 10000
+  eval_iters ...................................... 0
+  evidence_data_path .............................. None
+  exit_duration_in_mins ........................... None
+  exit_interval ................................... None
+  exit_on_missing_checkpoint ...................... False
+  exit_signal_handler ............................. False
+  expert_model_parallel_size ...................... 1
+  ffn_hidden_size ................................. 14336
+  finetune ........................................ False
+  fp16 ............................................ False
+  fp16_lm_cross_entropy ........................... False
+  fp32_residual_connection ........................ False
+  fp8 ............................................. None
+  fp8_amax_compute_algo ........................... most_recent
+  fp8_amax_history_len ............................ 1
+  fp8_interval .................................... 1
+  fp8_margin ...................................... 0
+  fp8_wgrad ....................................... True
+  global_batch_size ............................... 4
+  gradient_accumulation_fusion .................... False
+  group_query_attention ........................... True
+  head_lr_mult .................................... 1.0
+  hidden_dropout .................................. 0.0
+  hidden_size ..................................... 4096
+  hysteresis ...................................... 2
+  ict_head_size ................................... None
+  ict_load ........................................ None
+  img_h ........................................... 224
+  img_w ........................................... 224
+  indexer_batch_size .............................. 128
+  indexer_log_interval ............................ 1000
+  inference_batch_times_seqlen_threshold .......... 512
+  init_method_std ................................. 0.01
+  init_method_xavier_uniform ...................... False
+  initial_loss_scale .............................. 4096.0
+  iter_per_epoch .................................. 1250
+  kv_channels ..................................... 128
+  lazy_mpu_init ................................... None
+  load ............................................ None
+  local_rank ...................................... None
+  log_batch_size_to_tensorboard ................... False
+  log_interval .................................... 10
+  log_learning_rate_to_tensorboard ................ True
+  log_loss_scale_to_tensorboard ................... True
+  log_memory_to_tensorboard ....................... False
+  log_num_zeros_in_grad ........................... False
+  log_params_norm ................................. False
+  log_progress .................................... False
+  log_straggler ................................... False
+  log_throughput .................................. False
+  log_timers_to_tensorboard ....................... False
+  log_validation_ppl_to_tensorboard ............... False
+  log_world_size_to_tensorboard ................... False
+  loss_scale ...................................... None
+  loss_scale_window ............................... 1000
+  lr .............................................. 0.0001
+  lr_decay_iters .................................. None
+  lr_decay_samples ................................ None
+  lr_decay_style .................................. cosine
+  lr_warmup_fraction .............................. 0.01
+  lr_warmup_init .................................. 0.0
+  lr_warmup_iters ................................. 0
+  lr_warmup_samples ............................... 0
+  make_vocab_size_divisible_by .................... 16032
+  manual_gc ....................................... False
+  manual_gc_eval .................................. True
+  manual_gc_interval .............................. 0
+  mask_factor ..................................... 1.0
+  mask_prob ....................................... 0.15
+  mask_type ....................................... random
+  masked_softmax_fusion ........................... False
+  max_position_embeddings ......................... 8192
+  max_tokens_to_oom ............................... 12000
+  merge_file ...................................... None
+  micro_batch_size ................................ 1
+  min_loss_scale .................................. 1.0
+  min_lr .......................................... 1.25e-07
+  mmap_bin_files .................................. True
+  mock_data ....................................... False
+  moe_aux_loss_coeff .............................. 0.0
+  moe_expert_capacity_factor ...................... None
+  moe_extended_tp ................................. False
+  moe_grouped_gemm ................................ False
+  moe_input_jitter_eps ............................ None
+  moe_layer_recompute ............................. False
+  moe_pad_expert_input_to_capacity ................ False
+  moe_per_layer_logging ........................... False
+  moe_router_load_balancing_type .................. aux_loss
+  moe_router_topk ................................. 2
+  moe_token_dispatcher_type ....................... allgather
+  moe_token_drop_policy ........................... probs
+  moe_z_loss_coeff ................................ None
+  nccl_communicator_config_path ................... None
+  no_load_optim ................................... True
+  no_load_rng ..................................... True
+  no_persist_layer_norm ........................... False
+  no_save_optim ................................... None
+  no_save_rng ..................................... None
+  norm_epsilon .................................... 1e-05
+  normalization ................................... RMSNorm
+  num_attention_heads ............................. 32
+  num_channels .................................... 3
+  num_classes ..................................... 1000
+  num_dataset_builder_threads ..................... 1
+  num_experts ..................................... None
+  num_layers ...................................... 8
+  num_layers_per_virtual_pipeline_stage ........... None
+  num_query_groups ................................ 2
+  num_workers ..................................... 2
+  one_logger_entity ............................... hwinf_dcm
+  one_logger_project .............................. e2e-tracking
+  one_logger_run_name ............................. None
+  onnx_safe ....................................... None
+  openai_gelu ..................................... False
+  optimizer ....................................... adamW4bit
+  output_bert_embeddings .......................... False
+  overlap_grad_reduce ............................. False
+  overlap_p2p_comm ................................ False
+  overlap_param_gather ............................ False
+  override_opt_param_scheduler .................... False
+  params_dtype .................................... torch.bfloat16
+  patch_dim ....................................... 16
+  perform_initialization .......................... True
+  pipeline_model_parallel_size .................... 1
+  pipeline_model_parallel_split_rank .............. None
+  position_embedding_type ......................... rope
+  pretrained_checkpoint ........................... None
+  profile ......................................... False
+  profile_ranks ................................... [0]
+  profile_step_end ................................ 12
+  profile_step_start .............................. 10
+  qk_layernorm .................................... False
+  query_in_block_prob ............................. 0.1
+  rampup_batch_size ............................... None
+  rank ............................................ 0
+  recompute_granularity ........................... None
+  recompute_method ................................ None
+  recompute_num_layers ............................ None
+  reset_attention_mask ............................ False
+  reset_position_ids .............................. False
+  retriever_report_topk_accuracies ................ []
+  retriever_score_scaling ......................... False
+  retriever_seq_length ............................ 256
+  retro_add_retriever ............................. False
+  retro_attention_gate ............................ 1
+  retro_cyclic_train_iters ........................ None
+  retro_encoder_attention_dropout ................. 0.1
+  retro_encoder_hidden_dropout .................... 0.1
+  retro_encoder_layers ............................ 2
+  retro_num_neighbors ............................. 2
+  retro_num_retrieved_chunks ...................... 2
+  retro_project_dir ............................... None
+  retro_verify_neighbor_count ..................... True
+  rotary_interleaved .............................. False
+  rotary_percent .................................. 1.0
+  rotary_seq_len_interpolation_factor ............. None
+  sample_rate ..................................... 1.0
+  save ............................................ None
+  save_interval ................................... 5000
+  scatter_gather_tensors_in_pipeline .............. True
+  seed ............................................ 1234
+  seq_length ...................................... 8192
+  sequence_parallel ............................... True
+  sgd_momentum .................................... 0.9
+  short_seq_prob .................................. 0.1
+  skip_train ...................................... False
+  spec ............................................ None
+  split ........................................... 100,0,0
+  squared_relu .................................... False
+  standalone_embedding_stage ...................... False
+  start_weight_decay .............................. 0.1
+  straggler_ctrlr_port ............................ 65535
+  straggler_minmax_count .......................... 1
+  swiglu .......................................... True
+  swin_backbone_type .............................. tiny
+  tensor_model_parallel_size ...................... 2
+  tensorboard_dir ................................. None
+  tensorboard_log_interval ........................ 1
+  tensorboard_queue_size .......................... 1000
+  test_data_path .................................. None
+  test_mode ....................................... False
+  timing_log_level ................................ 0
+  timing_log_option ............................... minmax
+  titles_data_path ................................ None
+  tokenizer_model ................................. /home/MindSpeed-LLM/Llama-3-8b-hf/tokenizer.model
+  tokenizer_type .................................. Llama3Tokenizer
+  tp_comm_bulk_dgrad .............................. True
+  tp_comm_bulk_wgrad .............................. True
+  tp_comm_overlap ................................. False
+  tp_comm_overlap_ag .............................. True
+  tp_comm_overlap_cfg ............................. None
+  tp_comm_overlap_rs .............................. True
+  tp_comm_overlap_rs_dgrad ........................ False
+  tp_comm_split_ag ................................ True
+  tp_comm_split_rs ................................ True
+  train_data_path ................................. None
+  train_iters ..................................... 3
+  train_samples ................................... None
+  transformer_impl ................................ local
+  transformer_pipeline_model_parallel_size ........ 1
+  untie_embeddings_and_output_weights ............. True
+  use_checkpoint_args ............................. False
+  use_checkpoint_opt_param_scheduler .............. False
+  use_cpu_initialization .......................... None
+  use_dist_ckpt ................................... False
+  use_distributed_optimizer ....................... False
+  use_flash_attn .................................. True
+  use_mcore_models ................................ False
+  use_one_sent_docs ............................... False
+  use_ring_exchange_p2p ........................... False
+  use_rotary_position_embeddings .................. True
+  use_tp_pp_dp_mapping ............................ False
+  valid_data_path ................................. None
+  variable_seq_lengths ............................ False
+  virtual_pipeline_model_parallel_size ............ None
+  vision_backbone_type ............................ vit
+  vision_pretraining .............................. False
+  vision_pretraining_type ......................... classify
+  vocab_extra_ids ................................. 0
+  vocab_file ...................................... None
+  vocab_size ...................................... None
+  wandb_exp_name .................................. 
+  wandb_project ................................... 
+  wandb_save_dir .................................. 
+  weight_decay .................................... 0.1
+  weight_decay_incr_style ......................... constant
+  world_size ...................................... 2
+  yaml_cfg ........................................ None
+-------------------- end of arguments ---------------------
+setting number of micro-batches to constant 4
+> building Llama3Tokenizer tokenizer ...
+ > padded vocab (size: 128256) with 0 dummy tokens (new size: 128256)
+> initializing torch distributed ...
+[rank1]:[W224 13:07:23.671046108 ProcessGroupNCCL.cpp:4115] [PG ID 0 PG GUID 0 Rank 1]  using GPU 1 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect.Specify device_ids in barrier() to force use of a particular device,or call init_process_group() with a device_id.
+> initialized tensor model parallel with size 2
+> initialized pipeline model parallel with size 1
+> setting random seeds to 1234 ...
+> compiling dataset index builder ...
+make: Entering directory '/workspace/ModelLink_v2/ModelLink/megatron/core/datasets'
+make: Nothing to be done for 'default'.
+make: Leaving directory '/workspace/ModelLink_v2/ModelLink/megatron/core/datasets'
+>>> done with dataset index builder. Compilation time: 0.063 seconds
+WARNING: constraints for invoking optimized fused softmax kernel are not met. We default back to unfused kernel invocations.
+> compiling and loading fused kernels ...
+[rank0]:[W224 13:07:23.816964524 ProcessGroupNCCL.cpp:4115] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 to perform barrier as devices used by this process are currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect.Specify device_ids in barrier() to force use of a particular device,or call init_process_group() with a device_id.
+>>> done with compiling and loading fused kernels. Compilation time: 0.343 seconds
+[rank0]:[W224 13:07:24.081811866 init.cpp:767] Warning: nvfuser is no longer supported in torch script, use _jit_set_nvfuser_enabled is deprecated and a no-op (function operator())
+[rank1]:[W224 13:07:24.081823414 init.cpp:767] Warning: nvfuser is no longer supported in torch script, use _jit_set_nvfuser_enabled is deprecated and a no-op (function operator())
+time to initialize megatron (seconds): 2.558
+[after megatron is initialized] datetime: 2025-02-24 13:07:25 
+building GPT model ...
+GPTModel(
+  (language_model): TransformerLanguageModel(
+    (embedding): Embedding(
+      (word_embeddings): VocabParallelEmbedding()
+      (embedding_dropout): Dropout(p=0.0, inplace=False)
+    )
+    (rotary_pos_emb): RotaryEmbedding()
+    (encoder): ParallelTransformer(
+      (layers): ModuleList(
+        (0-7): 8 x ParallelTransformerLayer(
+          (input_norm): RMSNorm()
+          (self_attention): ParallelAttention(
+            (query_key_value): ColumnParallelLinear()
+            (core_attention): CoreAttention(
+              (scale_mask_softmax): FusedScaleMaskSoftmax()
+              (attention_dropout): Dropout(p=0.0, inplace=False)
+            )
+            (core_attention_flash): FlashSelfAttention()
+            (dense): RowParallelLinear()
+          )
+          (post_attention_norm): RMSNorm()
+          (mlp): ParallelMLP(
+            (dense_h_to_4h): ColumnParallelLinear()
+            (dense_4h_to_h): RowParallelLinear()
+          )
+        )
+      )
+      (final_norm): RMSNorm()
+    )
+    (output_layer): ColumnParallelLinear()
+  )
+)
+ > number of parameters on (tensor, pipeline) model parallel rank (1, 0): 1372655616
+ > number of parameters on (tensor, pipeline) model parallel rank (0, 0): 1372655616
+BASE: ['']
+LOCAL_RANK: 0
+OUTPUT: .
+QUANT:
+  DEBUG:
+    ROW_ABSMAX_STAT_EPOCH: False
+    ROW_ABSMAX_STAT_ITER: False
+    TRUNCATED_RATE_STAT_ITER: False
+  G:
+    ENABLE: False
+    THRESHOLD: 4096
+  INIT_STATES: ['param']
+  M:
+    BITS: 4
+    ENABLE: True
+    EXCLUDE_REGEX: ['']
+    EXCLUDE_SUFFIX: ['']
+    GROUP_SIZE: 128
+    QUANT_TYPE:
+      DEFAULT: nonlinear
+      DEFAULT_ONLY: True
+    ROUND_TYPE: real-nearest
+    SCALE_TYPE:
+      DEFAULT: group
+      DEFAULT_ONLY: True
+    SIGNED: True
+    THRESHOLD: 4096
+  P:
+    BITS: 8
+    ENABLE: False
+    EXCLUDE_REGEX: ['']
+    EXCLUDE_SUFFIX: ['']
+    GROUP_SIZE: 64
+    QUANT_TYPE:
+      DEFAULT: linear
+      DEFAULT_ONLY: True
+    ROUND_TYPE: sr
+    SCALE_TYPE:
+      DEFAULT: group
+      DEFAULT_ONLY: True
+    SIGNED: True
+    THRESHOLD: 4096
+  SQM:
+    BITS: 4
+    ENABLE: True
+    EXCLUDE_REGEX: ['']
+    EXCLUDE_SUFFIX: ['']
+    GROUP_SIZE: 128
+    QUANT_TYPE:
+      DEFAULT: power-1
+      DEFAULT_ONLY: True
+    ROUND_TYPE: real-nearest
+    SCALE_TYPE:
+      DEFAULT: group
+      DEFAULT_ONLY: True
+    SIGNED: False
+    THRESHOLD: 4096
+TAG: 
+TRAIN:
+  
+> learning rate decay style: cosine
+[after model, optimizer, and learning rate scheduler are built] datetime: 2025-02-24 13:07:25 
+> building train, validation, and test datasets ...
+ > datasets target sizes (minimum size):
+    train:      12
+    validation: 0
+    test:       0
+> building train, validation, and test datasets for GPT ...
+> finished creating GPT datasets ...
+[after dataloaders are built] datetime: 2025-02-24 13:07:25 
+done with setup ...
+/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed._all_gather_base` is a private function and will be deprecated. Please use `torch.distributed.all_gather_into_tensor` instead.
+  return func(*args, **kwargs)
+/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed._all_gather_base` is a private function and will be deprecated. Please use `torch.distributed.all_gather_into_tensor` instead.
+  return func(*args, **kwargs)
+training ...
+(min, max) time across ranks (ms):
+    model-and-optimizer-setup ......................: (88.17, 89.74)
+    train/valid/test-data-iterators-setup ..........: (9.24, 101.22)
+[before the start of training step] datetime: 2025-02-24 13:07:25 
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/mappings.py:141: FutureWarning: `torch.distributed._reduce_scatter_base` is a private function and will be deprecated. Please use `torch.distributed.reduce_scatter_tensor` instead.
+  torch.distributed._reduce_scatter_base(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/mappings.py:141: FutureWarning: `torch.distributed._reduce_scatter_base` is a private function and will be deprecated. Please use `torch.distributed.reduce_scatter_tensor` instead.
+  torch.distributed._reduce_scatter_base(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:454: FutureWarning: `torch.distributed._reduce_scatter_base` is a private function and will be deprecated. Please use `torch.distributed.reduce_scatter_tensor` instead.
+  handle = torch.distributed._reduce_scatter_base(
+/workspace/ModelLink_v2/ModelLink/megatron/core/tensor_parallel/layers.py:454: FutureWarning: `torch.distributed._reduce_scatter_base` is a private function and will be deprecated. Please use `torch.distributed.reduce_scatter_tensor` instead.
+  handle = torch.distributed._reduce_scatter_base(
+Before fp8 conversion:
+  Allocated: 11.37 GB
+  Reserved: 21.27 GB
+  Max Allocated: 18.67 GB
+Before fp8 conversion:
+  Allocated: 11.37 GB
+  Reserved: 21.27 GB
+  Max Allocated: 18.67 GB
+Before fp8 meta:
+  Allocated: 11.37 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+Before fp8 meta:
+  Allocated: 11.37 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After fp8 conversion:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After scaled_tensor conversion:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After fp8 conversion:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After scaled_tensor conversion:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After fp8 communication:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After fp8 communication:
+  Allocated: 12.65 GB
+  Reserved: 23.83 GB
+  Max Allocated: 18.67 GB
+After fp16:
+  Allocated: 15.21 GB
+  Reserved: 18.16 GB
+  Max Allocated: 18.67 GB
+Filename: /workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    97   1941.7 MiB   1941.7 MiB           1       @profile
+    98                                             def start_grad_sync(self):
+    99                                                 """
+   100                                                 Initiates grad sync (all-reduce or reduce-scatter) communication operation
+   101                                                 for this bucket.
+   102                                         
+   103                                                 When overlap_grad_reduce is set to True, dispatches an asynchronous
+   104                                                 communication call. When overlap_grad_reduce is set to False, makes
+   105                                                 synchronous call.
+   106                                                 """
+   107                                                 assert (
+   108   1941.7 MiB      0.0 MiB           1               self.communication_handle is None and not self.communication_issued
+   109                                                 ), 'Should not have multiple communication calls in flight at once'
+   110                                         
+   111                                                 # Make sure norm of grads in bucket are not NaN
+   112                                                 # prior to data-parallel all-reduce / reduce-scatter.
+   113   1941.7 MiB      0.0 MiB           1           if self.ddp_config.check_for_nan_in_grad:
+   114   1941.7 MiB      0.0 MiB           1               global_rank = torch.distributed.get_rank()
+   115   1975.0 MiB     33.3 MiB           1               norm = self.grad_data.norm(p=2)
+   116   1975.0 MiB      0.0 MiB           1               assert not norm.isnan(), (
+   117                                                         f'Rank {global_rank}: found NaN in local grad norm in '
+   118                                                         f'backward pass before data-parallel communication collective. '
+   119                                                         f'Device: {torch.cuda.current_device()}, node: {os.uname()[1]}'
+   120                                                     )
+   121                                                 # print("测试2")   
+   122   2004.7 MiB      0.0 MiB           7           def print_memory_stats(prefix):
+   123   2004.7 MiB      0.3 MiB           6               torch.cuda.synchronize()
+   124   2004.7 MiB      0.0 MiB           6               allocated = torch.cuda.memory_allocated() / (1024 * 1024 * 1024)
+   125   2004.7 MiB      0.0 MiB           6               reserved = torch.cuda.memory_reserved() / (1024 * 1024 * 1024)
+   126   2004.7 MiB      0.2 MiB           6               max_allocated = torch.cuda.max_memory_allocated() / (1024 * 1024 * 1024)
+   127   2004.7 MiB      0.0 MiB           6               print(f"{prefix}:")
+   128   2004.7 MiB      0.0 MiB           6               print(f"  Allocated: {allocated:.2f} GB")
+   129   2004.7 MiB      0.0 MiB           6               print(f"  Reserved: {reserved:.2f} GB")
+   130   2004.7 MiB      0.0 MiB           6               print(f"  Max Allocated: {max_allocated:.2f} GB")
+   131                                                 
+   132   1975.3 MiB      0.0 MiB           1           print_memory_stats("Before fp8 conversion")
+   133                                                 
+   134   1975.3 MiB      0.0 MiB           1           if self.ddp_config.grad_reduce_in_fp8:
+   135   1975.3 MiB      0.0 MiB           1               torch.backends.cudnn.benchmark = False
+   136   1975.3 MiB      0.0 MiB           1               torch.backends.cudnn.enabled = False
+   137   1975.7 MiB      0.3 MiB           1               from ..msamp.common.tensor import ScalingTensor, ScalingMeta
+   138   1975.7 MiB      0.0 MiB           1               from ..msamp.common.dtype import Dtypes, Floating
+   139   1975.7 MiB      0.0 MiB           1               from ..msamp.operators.dist_op import DistOp
+   140   1975.7 MiB      0.0 MiB           1               import transformer_engine_torch as tex
+   141                                                     
+   142   1975.7 MiB      0.0 MiB           1               rank = torch.distributed.get_rank()
+   143   1975.7 MiB      0.0 MiB           1               local_rank = rank % torch.cuda.device_count()
+   144   1975.7 MiB      0.0 MiB           1               torch.cuda.set_device(local_rank)
+   145   1975.7 MiB      0.0 MiB           1               device = torch.device(f'cuda:{local_rank}')
+   146   1975.7 MiB      0.0 MiB           1               world_size = torch.distributed.get_world_size()
+   147                                                     
+   148   1975.7 MiB      0.0 MiB           1               wgrad_qtype = Dtypes.kfloat8_e4m3
+   149                                                     # wgrad_qtype = Dtypes.kfloat32
+   150   1975.7 MiB      0.0 MiB           1               meta = ScalingMeta(wgrad_qtype, group=torch.distributed.group.WORLD)
+   151                                                     
+   152   1979.6 MiB      3.9 MiB           1               amax = self.grad_data.abs().max().float()
+   153   1979.6 MiB      0.0 MiB           1               amax_tensor = torch.tensor([amax], device=device)
+   154   1979.6 MiB      0.0 MiB           1               amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
+   155   1979.6 MiB      0.0 MiB           1               torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
+   156   1998.4 MiB     18.8 MiB           1               global_amax = amax_tensor[0].clamp(min=1e-12)
+   157                                                     
+   158   1998.4 MiB      0.0 MiB           1               fp_max = Floating.qfp_max[wgrad_qtype]
+   159   1998.4 MiB      0.0 MiB           1               pre_scale = 1.0 / math.sqrt(world_size)  # 关键预处理因子
+   160   2002.0 MiB      3.7 MiB           3               scale = ScalingMeta.compute_scaling_factor(
+   161   1998.4 MiB      0.0 MiB           1                   global_amax, 
+   162   1998.4 MiB      0.0 MiB           1                   meta.scale, 
+   163   1998.4 MiB      0.0 MiB           1                   fp_max, 
+   164   1998.4 MiB      0.0 MiB           1                   margin=0
+   165   2002.0 MiB      0.0 MiB           1               ) * pre_scale
+   166   2002.0 MiB      0.0 MiB           1               meta.amax[0] = global_amax
+   167   2002.0 MiB      0.0 MiB           1               meta.scale.copy_(scale)
+   168   2002.0 MiB      0.0 MiB           1               meta.scale_inv.copy_(torch.reciprocal(scale))
+   169                                                     
+   170   2002.0 MiB      0.0 MiB           1               dummy_amax = torch.empty((1,), device=device)  # 占位参数
+   171                                                     
+   172                                                     # fp8_grad = TransformerEngineWrapper.cast_to_fp8(
+   173                                                     #     self.grad_data.view(1, -1),
+   174                                                     #     meta.scale,
+   175                                                     #     dummy_amax,
+   176                                                     #     meta.scale_inv,
+   177                                                     #     wgrad_qtype
+   178                                                     # ).view_as(self.grad_data)
+   179   2002.2 MiB      0.0 MiB           1               print_memory_stats("Before fp8 meta")
+   180   2004.5 MiB      2.2 MiB           2               self.grad_data = tex.cast_to_fp8(
+   181   2002.2 MiB      0.0 MiB           1                   self.grad_data.view(1, -1),
+   182   2002.2 MiB      0.0 MiB           1                   meta.scale,
+   183   2002.2 MiB      0.0 MiB           1                   dummy_amax,
+   184   2002.2 MiB      0.0 MiB           1                   meta.scale_inv,
+   185   2002.2 MiB      0.0 MiB           1                   getattr(tex.DType, wgrad_qtype.name)
+   186                                                     )
+   187                                         
+   188   2004.5 MiB      0.0 MiB           1               print_memory_stats("After fp8 conversion")
+   189   2004.5 MiB      0.0 MiB           1               scaled_tensor = ScalingTensor(self.grad_data, meta)
+   190   2004.5 MiB      0.0 MiB           1               scaled_tensor.div_(world_size)  # 关键预处理步骤
+   191                                                     # fp8_grad.div_(world_size)
+   192   2004.5 MiB      0.0 MiB           1               self.grad_data = scaled_tensor.value
+   193                                                 # 添加在fp8转换后的显存监控    
+   194   2004.5 MiB      0.0 MiB           1           print_memory_stats("After scaled_tensor conversion")
+   195                                         
+   196   2004.5 MiB      0.0 MiB           1           if self.gradient_scaling_factor != 1.0: # 1
+   197                                                     self.grad_data *= self.gradient_scaling_factor
+   198                                                 # Use async_op only when overlap_grad_reduce is True.
+   199   2004.5 MiB      0.0 MiB           1           if self.ddp_config.use_distributed_optimizer:
+   200                                                     local_data_view = shard_buffer(self.grad_data, self.data_parallel_world_size)[
+   201                                                         self.data_parallel_rank
+   202                                                     ]
+   203                                                     self.communication_handle = torch.distributed._reduce_scatter_base(
+   204                                                         local_data_view,
+   205                                                         self.grad_data,
+   206                                                         group=self.data_parallel_group,
+   207                                                         async_op=self.ddp_config.overlap_grad_reduce,
+   208                                                     )
+   209                                                 else:
+   210                                                     # self.communication_handle = torch.distributed.all_reduce(
+   211                                                     #     self.grad_data,
+   212                                                     #     group=self.data_parallel_group,
+   213                                                     #     async_op=self.ddp_config.overlap_grad_reduce, # false
+   214                                                     # )
+   215   2004.5 MiB      0.0 MiB           1               if self.ddp_config.grad_reduce_in_fp8:
+   216   2004.7 MiB      0.2 MiB           2                   self.communication_handle = DistOp.all_reduce(
+   217   2004.5 MiB      0.0 MiB           1                       self.grad_data,  # 访问底层int8数据
+   218   2004.5 MiB      0.0 MiB           1                       wgrad_qtype,
+   219   2004.5 MiB      0.0 MiB           1                       torch.distributed.ReduceOp.SUM,
+   220   2004.5 MiB      0.0 MiB           1                       group=torch.distributed.group.WORLD,
+   221   2004.5 MiB      0.0 MiB           1                       async_op=self.ddp_config.overlap_grad_reduce
+   222                                                         )
+   223                                                         # self.fp8_grad_pending = True
+   224   2004.7 MiB      0.0 MiB           1                   print_memory_stats("After fp8 communication")
+   225                                                         
+   226                                                         # # 方案1: 使用原地转换
+   227                                                         # self.grad_data.copy_(self.grad_data.to(torch.bfloat16))
+   228   2004.7 MiB      0.0 MiB           1                   if self.ddp_config.overlap_grad_reduce:
+   229                                                             self.communication_handle.wait()
+   230                                                         # 或者方案2: 使用transformer engine的原地转换API
+   231   2004.7 MiB      0.0 MiB           2                   self.grad_data = tex.cast_from_fp8(
+   232   2004.7 MiB      0.0 MiB           1                       self.grad_data.view(1, -1),
+   233   2004.7 MiB      0.0 MiB           1                       meta.scale_inv * world_size,  # 补偿预缩放
+   234   2004.7 MiB      0.0 MiB           1                       getattr(tex.DType, wgrad_qtype.name),
+   235   2004.7 MiB      0.0 MiB           1                       getattr(tex.DType, Dtypes.kbfloat16.name)
+   236                                                         )
+   237   2004.7 MiB      0.0 MiB           1                   torch.cuda.empty_cache()
+   238                                                         # print(self.grad_data.shape)
+   239   2004.7 MiB      0.0 MiB           1                   print_memory_stats("After fp16")
+   240                                                     else: 
+   241                                                         self.communication_handle = torch.distributed.all_reduce(
+   242                                                             self.grad_data,
+   243                                                             group=self.data_parallel_group,
+   244                                                             async_op=self.ddp_config.overlap_grad_reduce, # false
+   245                                                         )
+   246   2004.7 MiB      0.0 MiB           1           self.communication_issued = True
+
+
+After fp16:
+  Allocated: 15.21 GB
+  Reserved: 17.61 GB
+  Max Allocated: 18.67 GB
+Filename: /workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    97   1668.1 MiB   1668.1 MiB           1       @profile
+    98                                             def start_grad_sync(self):
+    99                                                 """
+   100                                                 Initiates grad sync (all-reduce or reduce-scatter) communication operation
+   101                                                 for this bucket.
+   102                                         
+   103                                                 When overlap_grad_reduce is set to True, dispatches an asynchronous
+   104                                                 communication call. When overlap_grad_reduce is set to False, makes
+   105                                                 synchronous call.
+   106                                                 """
+   107                                                 assert (
+   108   1668.1 MiB      0.0 MiB           1               self.communication_handle is None and not self.communication_issued
+   109                                                 ), 'Should not have multiple communication calls in flight at once'
+   110                                         
+   111                                                 # Make sure norm of grads in bucket are not NaN
+   112                                                 # prior to data-parallel all-reduce / reduce-scatter.
+   113   1668.1 MiB      0.0 MiB           1           if self.ddp_config.check_for_nan_in_grad:
+   114   1668.1 MiB      0.0 MiB           1               global_rank = torch.distributed.get_rank()
+   115   1701.6 MiB     33.5 MiB           1               norm = self.grad_data.norm(p=2)
+   116   1701.6 MiB      0.0 MiB           1               assert not norm.isnan(), (
+   117                                                         f'Rank {global_rank}: found NaN in local grad norm in '
+   118                                                         f'backward pass before data-parallel communication collective. '
+   119                                                         f'Device: {torch.cuda.current_device()}, node: {os.uname()[1]}'
+   120                                                     )
+   121                                                 # print("测试2")   
+   122   1731.2 MiB      0.0 MiB           7           def print_memory_stats(prefix):
+   123   1731.2 MiB      0.1 MiB           6               torch.cuda.synchronize()
+   124   1731.2 MiB      0.2 MiB           6               allocated = torch.cuda.memory_allocated() / (1024 * 1024 * 1024)
+   125   1731.2 MiB      0.0 MiB           6               reserved = torch.cuda.memory_reserved() / (1024 * 1024 * 1024)
+   126   1731.2 MiB      0.0 MiB           6               max_allocated = torch.cuda.max_memory_allocated() / (1024 * 1024 * 1024)
+   127   1731.2 MiB      0.0 MiB           6               print(f"{prefix}:")
+   128   1731.2 MiB      0.0 MiB           6               print(f"  Allocated: {allocated:.2f} GB")
+   129   1731.2 MiB      0.0 MiB           6               print(f"  Reserved: {reserved:.2f} GB")
+   130   1731.2 MiB      0.0 MiB           6               print(f"  Max Allocated: {max_allocated:.2f} GB")
+   131                                                 
+   132   1701.8 MiB      0.0 MiB           1           print_memory_stats("Before fp8 conversion")
+   133                                                 
+   134   1701.8 MiB      0.0 MiB           1           if self.ddp_config.grad_reduce_in_fp8:
+   135   1701.8 MiB      0.0 MiB           1               torch.backends.cudnn.benchmark = False
+   136   1701.8 MiB      0.0 MiB           1               torch.backends.cudnn.enabled = False
+   137   1702.1 MiB      0.3 MiB           1               from ..msamp.common.tensor import ScalingTensor, ScalingMeta
+   138   1702.1 MiB      0.0 MiB           1               from ..msamp.common.dtype import Dtypes, Floating
+   139   1702.1 MiB      0.0 MiB           1               from ..msamp.operators.dist_op import DistOp
+   140   1702.1 MiB      0.0 MiB           1               import transformer_engine_torch as tex
+   141                                                     
+   142   1702.1 MiB      0.0 MiB           1               rank = torch.distributed.get_rank()
+   143   1702.1 MiB      0.0 MiB           1               local_rank = rank % torch.cuda.device_count()
+   144   1702.1 MiB      0.0 MiB           1               torch.cuda.set_device(local_rank)
+   145   1702.1 MiB      0.0 MiB           1               device = torch.device(f'cuda:{local_rank}')
+   146   1702.1 MiB      0.0 MiB           1               world_size = torch.distributed.get_world_size()
+   147                                                     
+   148   1702.1 MiB      0.0 MiB           1               wgrad_qtype = Dtypes.kfloat8_e4m3
+   149                                                     # wgrad_qtype = Dtypes.kfloat32
+   150   1702.1 MiB      0.0 MiB           1               meta = ScalingMeta(wgrad_qtype, group=torch.distributed.group.WORLD)
+   151                                                     
+   152   1705.9 MiB      3.8 MiB           1               amax = self.grad_data.abs().max().float()
+   153   1706.0 MiB      0.2 MiB           1               amax_tensor = torch.tensor([amax], device=device)
+   154   1706.0 MiB      0.0 MiB           1               amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
+   155   1706.0 MiB      0.0 MiB           1               torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
+   156   1724.9 MiB     18.9 MiB           1               global_amax = amax_tensor[0].clamp(min=1e-12)
+   157                                                     
+   158   1724.9 MiB      0.0 MiB           1               fp_max = Floating.qfp_max[wgrad_qtype]
+   159   1724.9 MiB      0.0 MiB           1               pre_scale = 1.0 / math.sqrt(world_size)  # 关键预处理因子
+   160   1728.4 MiB      3.5 MiB           3               scale = ScalingMeta.compute_scaling_factor(
+   161   1724.9 MiB      0.0 MiB           1                   global_amax, 
+   162   1724.9 MiB      0.0 MiB           1                   meta.scale, 
+   163   1724.9 MiB      0.0 MiB           1                   fp_max, 
+   164   1724.9 MiB      0.0 MiB           1                   margin=0
+   165   1728.4 MiB      0.0 MiB           1               ) * pre_scale
+   166   1728.4 MiB      0.0 MiB           1               meta.amax[0] = global_amax
+   167   1728.4 MiB      0.0 MiB           1               meta.scale.copy_(scale)
+   168   1728.4 MiB      0.0 MiB           1               meta.scale_inv.copy_(torch.reciprocal(scale))
+   169                                                     
+   170   1728.4 MiB      0.0 MiB           1               dummy_amax = torch.empty((1,), device=device)  # 占位参数
+   171                                                     
+   172                                                     # fp8_grad = TransformerEngineWrapper.cast_to_fp8(
+   173                                                     #     self.grad_data.view(1, -1),
+   174                                                     #     meta.scale,
+   175                                                     #     dummy_amax,
+   176                                                     #     meta.scale_inv,
+   177                                                     #     wgrad_qtype
+   178                                                     # ).view_as(self.grad_data)
+   179   1728.4 MiB      0.0 MiB           1               print_memory_stats("Before fp8 meta")
+   180   1730.9 MiB      2.5 MiB           2               self.grad_data = tex.cast_to_fp8(
+   181   1728.4 MiB      0.0 MiB           1                   self.grad_data.view(1, -1),
+   182   1728.4 MiB      0.0 MiB           1                   meta.scale,
+   183   1728.4 MiB      0.0 MiB           1                   dummy_amax,
+   184   1728.4 MiB      0.0 MiB           1                   meta.scale_inv,
+   185   1728.4 MiB      0.0 MiB           1                   getattr(tex.DType, wgrad_qtype.name)
+   186                                                     )
+   187                                         
+   188   1730.9 MiB      0.0 MiB           1               print_memory_stats("After fp8 conversion")
+   189   1730.9 MiB      0.0 MiB           1               scaled_tensor = ScalingTensor(self.grad_data, meta)
+   190   1730.9 MiB      0.0 MiB           1               scaled_tensor.div_(world_size)  # 关键预处理步骤
+   191                                                     # fp8_grad.div_(world_size)
+   192   1730.9 MiB      0.0 MiB           1               self.grad_data = scaled_tensor.value
+   193                                                 # 添加在fp8转换后的显存监控    
+   194   1730.9 MiB      0.0 MiB           1           print_memory_stats("After scaled_tensor conversion")
+   195                                         
+   196   1730.9 MiB      0.0 MiB           1           if self.gradient_scaling_factor != 1.0: # 1
+   197                                                     self.grad_data *= self.gradient_scaling_factor
+   198                                                 # Use async_op only when overlap_grad_reduce is True.
+   199   1730.9 MiB      0.0 MiB           1           if self.ddp_config.use_distributed_optimizer:
+   200                                                     local_data_view = shard_buffer(self.grad_data, self.data_parallel_world_size)[
+   201                                                         self.data_parallel_rank
+   202                                                     ]
+   203                                                     self.communication_handle = torch.distributed._reduce_scatter_base(
+   204                                                         local_data_view,
+   205                                                         self.grad_data,
+   206                                                         group=self.data_parallel_group,
+   207                                                         async_op=self.ddp_config.overlap_grad_reduce,
+   208                                                     )
+   209                                                 else:
+   210                                                     # self.communication_handle = torch.distributed.all_reduce(
+   211                                                     #     self.grad_data,
+   212                                                     #     group=self.data_parallel_group,
+   213                                                     #     async_op=self.ddp_config.overlap_grad_reduce, # false
+   214                                                     # )
+   215   1730.9 MiB      0.0 MiB           1               if self.ddp_config.grad_reduce_in_fp8:
+   216   1730.9 MiB      0.0 MiB           2                   self.communication_handle = DistOp.all_reduce(
+   217   1730.9 MiB      0.0 MiB           1                       self.grad_data,  # 访问底层int8数据
+   218   1730.9 MiB      0.0 MiB           1                       wgrad_qtype,
+   219   1730.9 MiB      0.0 MiB           1                       torch.distributed.ReduceOp.SUM,
+   220   1730.9 MiB      0.0 MiB           1                       group=torch.distributed.group.WORLD,
+   221   1730.9 MiB      0.0 MiB           1                       async_op=self.ddp_config.overlap_grad_reduce
+   222                                                         )
+   223                                                         # self.fp8_grad_pending = True
+   224   1731.2 MiB      0.0 MiB           1                   print_memory_stats("After fp8 communication")
+   225                                                         
+   226                                                         # # 方案1: 使用原地转换
+   227                                                         # self.grad_data.copy_(self.grad_data.to(torch.bfloat16))
+   228   1731.2 MiB      0.0 MiB           1                   if self.ddp_config.overlap_grad_reduce:
+   229                                                             self.communication_handle.wait()
+   230                                                         # 或者方案2: 使用transformer engine的原地转换API
+   231   1731.2 MiB      0.0 MiB           2                   self.grad_data = tex.cast_from_fp8(
+   232   1731.2 MiB      0.0 MiB           1                       self.grad_data.view(1, -1),
+   233   1731.2 MiB      0.0 MiB           1                       meta.scale_inv * world_size,  # 补偿预缩放
+   234   1731.2 MiB      0.0 MiB           1                       getattr(tex.DType, wgrad_qtype.name),
+   235   1731.2 MiB      0.0 MiB           1                       getattr(tex.DType, Dtypes.kbfloat16.name)
+   236                                                         )
+   237   1731.2 MiB      0.0 MiB           1                   torch.cuda.empty_cache()
+   238                                                         # print(self.grad_data.shape)
+   239   1731.2 MiB      0.0 MiB           1                   print_memory_stats("After fp16")
+   240                                                     else: 
+   241                                                         self.communication_handle = torch.distributed.all_reduce(
+   242                                                             self.grad_data,
+   243                                                             group=self.data_parallel_group,
+   244                                                             async_op=self.ddp_config.overlap_grad_reduce, # false
+   245                                                         )
+   246   1731.2 MiB      0.0 MiB           1           self.communication_issued = True
+
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/pretrain_gpt.py", line 234, in <module>
+[rank0]:     main()
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/pretrain_gpt.py", line 227, in main
+[rank0]:     pretrain(train_valid_test_datasets_provider,
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 274, in pretrain
+[rank0]:     iteration, num_floating_point_operations_so_far = train(
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 1029, in train
+[rank0]:     train_step(forward_step_func,
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 552, in train_step
+[rank0]:     losses_reduced = forward_backward_func(
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/pipeline_parallel/schedules.py", line 421, in forward_backward_no_pipelining
+[rank0]:     config.finalize_model_grads_func(
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/finalize_model_grads.py", line 113, in finalize_model_grads
+[rank0]:     model_chunk.finish_grad_sync()
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/distributed_data_parallel.py", line 248, in finish_grad_sync
+[rank0]:     buffer.finish_grad_sync()
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 620, in finish_grad_sync
+[rank0]:     bucket.finish_grad_sync()
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 258, in finish_grad_sync
+[rank0]:     self.start_grad_sync()
+[rank0]:   File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/memory_profiler.py", line 1188, in wrapper
+[rank0]:     val = prof(func)(*args, **kwargs)
+[rank0]:   File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/memory_profiler.py", line 761, in f
+[rank0]:     return func(*args, **kwds)
+[rank0]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 116, in start_grad_sync
+[rank0]:     assert not norm.isnan(), (
+[rank0]: AssertionError: Rank 0: found NaN in local grad norm in backward pass before data-parallel communication collective. Device: 0, node: job-99b14c10-vzd8s
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/pretrain_gpt.py", line 234, in <module>
+[rank1]:     main()
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/pretrain_gpt.py", line 227, in main
+[rank1]:     pretrain(train_valid_test_datasets_provider,
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 274, in pretrain
+[rank1]:     iteration, num_floating_point_operations_so_far = train(
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 1029, in train
+[rank1]:     train_step(forward_step_func,
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/training/training.py", line 552, in train_step
+[rank1]:     losses_reduced = forward_backward_func(
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/pipeline_parallel/schedules.py", line 421, in forward_backward_no_pipelining
+[rank1]:     config.finalize_model_grads_func(
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/finalize_model_grads.py", line 113, in finalize_model_grads
+[rank1]:     model_chunk.finish_grad_sync()
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/distributed_data_parallel.py", line 248, in finish_grad_sync
+[rank1]:     buffer.finish_grad_sync()
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 620, in finish_grad_sync
+[rank1]:     bucket.finish_grad_sync()
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 258, in finish_grad_sync
+[rank1]:     self.start_grad_sync()
+[rank1]:   File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/memory_profiler.py", line 1188, in wrapper
+[rank1]:     val = prof(func)(*args, **kwargs)
+[rank1]:   File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/memory_profiler.py", line 761, in f
+[rank1]:     return func(*args, **kwds)
+[rank1]:   File "/workspace/ModelLink_v2/ModelLink/megatron/core/distributed/param_and_grad_buffer.py", line 116, in start_grad_sync
+[rank1]:     assert not norm.isnan(), (
+[rank1]: AssertionError: Rank 1: found NaN in local grad norm in backward pass before data-parallel communication collective. Device: 1, node: job-99b14c10-vzd8s
+[rank1]:[W224 13:07:34.314431585 ProcessGroupNCCL.cpp:1250] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+[rank1]:[W224 13:07:36.655525168 unwind.cpp:214] Warning: Unsupported unwinding pattern: Address not in range (function unwinderFor)
+W0224 13:07:37.002000 52676 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 52754 closing signal SIGTERM
+E0224 13:07:37.318000 52676 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 1 (pid: 52755) of binary: /opt/conda/envs/ModelLink/bin/python
+Traceback (most recent call last):
+  File "/opt/conda/envs/ModelLink/bin/torchrun", line 8, in <module>
+    sys.exit(main())
+  File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/opt/conda/envs/ModelLink/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+pretrain_gpt.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2025-02-24_13:07:37
+  host      : job-99b14c10-vzd8s
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 52755)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

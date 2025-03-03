@@ -7,10 +7,14 @@ from logging import getLogger
 from typing import Dict, List, Optional
 
 import torch
+from memory_profiler import profile
 
 from .. import parallel_state
 from .distributed_data_parallel_config import DistributedDataParallelConfig
 
+from ..msamp.common.tensor import ScalingTensor, ScalingMeta
+from ..msamp.common.dtype import Dtypes, Floating
+from ..msamp.operators.dist_op import DistOp
 logger = getLogger(__name__)
 
 
@@ -116,8 +120,8 @@ class Bucket:
                 f'backward pass before data-parallel communication collective. '
                 f'Device: {torch.cuda.current_device()}, node: {os.uname()[1]}'
             )
-
-        if self.gradient_scaling_factor != 1.0:
+            
+        if self.gradient_scaling_factor != 1.0: 
             self.grad_data *= self.gradient_scaling_factor
         # Use async_op only when overlap_grad_reduce is True.
         if self.ddp_config.use_distributed_optimizer:
@@ -134,7 +138,130 @@ class Bucket:
             self.communication_handle = torch.distributed.all_reduce(
                 self.grad_data,
                 group=self.data_parallel_group,
+                async_op=self.ddp_config.overlap_grad_reduce, # false
+            )
+        self.communication_issued = True
+
+    def scale_fp8e4m3_tensor(self, fp8_tensor: torch.Tensor, scale: float) -> torch.Tensor:
+        """
+        对 FP8 E4M3 格式的 uint8 张量进行缩放（直接操作指数部分）
+        
+        Args:
+            fp8_tensor (torch.Tensor): uint8 张量，数据为 FP8 E4M3 格式
+            scale (float): 缩放因子，必须是2的整数次幂（如 2, 0.5, 4, 等）
+        
+        Returns:
+            torch.Tensor: 缩放后的 uint8 张量（FP8 E4M3 格式）
+        """
+        # 验证 scale 是2的整数次幂且为正数
+        assert scale > 0, "Scale must be positive"
+        log2_scale = math.log2(scale)
+        # print(log2_scale)
+        assert math.isclose(log2_scale, round(log2_scale), rel_tol=1e-5), \
+            "Scale must be an exact power of 2, scale:{}".format(scale)
+        k = int(round(log2_scale))
+
+        # 提取各部分位信息（无需转浮点数）
+        sign = (fp8_tensor >> 7) & 0x1          # [0,1]
+        exponent = (fp8_tensor >> 3) & 0xF      # [0,15]
+        mantissa = fp8_tensor & 0x7             # [0,7]
+
+        # 调整指数并限制范围 [0,15])
+        exponent = exponent.to(torch.int8)
+        new_exponent = torch.clamp(exponent + k, 0, 15)
+
+        # 重组为新的 FP8 E4M3 格式
+        scaled_fp8 = (sign << 7) | (new_exponent << 3) | mantissa
+
+        return scaled_fp8.to(fp8_tensor.dtype)
+    # @profile
+    def start_grad8bit_sync(self):
+        """
+        Initiates grad sync (all-reduce or reduce-scatter) communication operation
+        for this bucket.
+
+        When overlap_grad_reduce is set to True, dispatches an asynchronous
+        communication call. When overlap_grad_reduce is set to False, makes
+        synchronous call.
+        """
+        assert (
+            self.communication_handle is None and not self.communication_issued
+        ), 'Should not have multiple communication calls in flight at once'
+        # print(self.grad_data.value)
+        # Make sure norm of grads in bucket are not NaN
+        # prior to data-parallel all-reduce / reduce-scatter.
+        # if self.ddp_config.check_for_nan_in_grad:
+        #     global_rank = torch.distributed.get_rank()
+        #     norm = self.grad_data.norm(p=2)
+        #     assert not norm.isnan(), (
+        #         f'Rank {global_rank}: found NaN in local grad norm in '
+        #         f'backward pass before data-parallel communication collective. '
+        #         f'Device: {torch.cuda.current_device()}, node: {os.uname()[1]}'
+        #     )   
+        def print_memory_stats(prefix):
+            torch.cuda.synchronize()
+            allocated = torch.cuda.memory_allocated() / (1024 * 1024 * 1024)
+            reserved = torch.cuda.memory_reserved() / (1024 * 1024 * 1024)
+            max_allocated = torch.cuda.max_memory_allocated() / (1024 * 1024 * 1024)
+            print(f"{prefix}:")
+            print(f"  Allocated: {allocated:.2f} GB")
+            print(f"  Reserved: {reserved:.2f} GB")
+            print(f"  Max Allocated: {max_allocated:.2f} GB")
+        
+        # print_memory_stats("Before fp8 conversion")
+    
+            # import transformer_engine_torch as tex
+            
+            # rank = torch.distributed.get_rank()
+            # local_rank = rank % torch.cuda.device_count()
+            # torch.cuda.set_device(local_rank)
+            # device = torch.device(f'cuda:{local_rank}')
+            
+        wgrad_qtype = self.grad_data.meta.qtype
+            
+        amax_tensor = self.grad_data.meta.amax
+            # amax_tensor = torch.tensor([amax], device=device)
+        amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
+        torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
+        global_amax = amax_tensor[0].clamp(min=1e-12)
+        # print(self.grad_data.meta.scale)
+
+        fp_max = Floating.qfp_max[wgrad_qtype]
+        new_scale = ScalingMeta.compute_scaling_factor(
+            global_amax, 
+            self.grad_data.meta.scale, 
+            fp_max, 
+            margin=0
+        ) #???
+
+        fp8_scale = new_scale.div(self.grad_data.meta.scale)
+
+        self.grad_data.value = self.scale_fp8e4m3_tensor(self.grad_data.value, fp8_scale)
+
+        self.grad_data.meta.amax[0] = global_amax
+        self.grad_data.meta.scale.copy_(new_scale)
+        self.grad_data.meta.scale_inv.copy_(torch.reciprocal(new_scale))
+            
+        if self.gradient_scaling_factor != 1.0: # 1
+            self.grad_data *= self.gradient_scaling_factor
+        # Use async_op only when overlap_grad_reduce is True.
+        if self.ddp_config.use_distributed_optimizer:
+            local_data_view = shard_buffer(self.grad_data, self.data_parallel_world_size)[
+                self.data_parallel_rank
+            ]
+            self.communication_handle = torch.distributed._reduce_scatter_base(
+                local_data_view,
+                self.grad_data,
+                group=self.data_parallel_group,
                 async_op=self.ddp_config.overlap_grad_reduce,
+            )
+        else:
+            self.communication_handle = DistOp.all_reduce(
+                self.grad_data.value,  # 访问底层int8数据
+                wgrad_qtype,
+                torch.distributed.ReduceOp.SUM,
+                group=torch.distributed.group.WORLD,
+                async_op=self.ddp_config.overlap_grad_reduce
             )
         self.communication_issued = True
 
@@ -148,7 +275,10 @@ class Bucket:
         """
         # If overlap_grad_reduce is False, start (and finish) synchronous communication call here.
         if not self.ddp_config.overlap_grad_reduce:
-            self.start_grad_sync()
+            if self.ddp_config.grad_reduce_in_fp8:
+                self.start_grad8bit_sync()
+            else:
+                self.start_grad_sync()
             return
         assert self.communication_handle is not None and self.communication_issued, (
             f'Communication call has not been issued for this bucket '
@@ -171,7 +301,10 @@ class Bucket:
         self.params_with_grad.add(param)
         # If all params in bucket have grads available, issue communication call.
         if len(self.params_with_grad) == len(self.params):
-            self.start_grad_sync()
+            if self.ddp_config.grad_reduce_in_fp8:
+                self.start_grad8bit_sync()
+            else:
+                self.start_grad_sync()
 
 
 class ParamAndGradBuffer:
@@ -341,7 +474,7 @@ class ParamAndGradBuffer:
             )
         self.grad_data = torch.zeros(
             self.numel,
-            dtype=self.grad_dtype,
+            dtype=torch.uint8,
             device=torch.cuda.current_device(),
             requires_grad=False,
         )
@@ -350,6 +483,14 @@ class ParamAndGradBuffer:
         bucket_params = set()
         bucket_data_start_index = 0
         cur_bucket_id = 0
+        num_params = len(params)
+        window_size = 1
+        t = 0
+        pre_scale = 1.0 / math.sqrt(self.data_parallel_world_size)
+
+        scales = torch.ones((num_params, ), device='cuda')
+        scale_invs = torch.ones((num_params, ), device='cuda')
+        amaxs = torch.zeros((num_params, window_size), device='cuda')
         for param in params[::-1]:
             if not param.requires_grad:
                 continue
@@ -365,19 +506,38 @@ class ParamAndGradBuffer:
                 # Copy tensor values (from initialization or checkpoint).
                 param.data.detach().copy_(old_param_data)
                 del old_param_data
-
-            param.main_grad = self._get(
-                param.data.shape, data_start_index, buffer_type=BufferType.GRAD
-            )
+            # param.main_grad = self._get(
+            #     param.data.shape, data_start_index, buffer_type=BufferType.GRAD
+            # )
+            if self.ddp_config.grad_reduce_in_fp8:
+                self.wgrad_qtype = Dtypes.kfloat8_e4m3
+                meta = ScalingMeta(self.wgrad_qtype, scale=scales[t], scale_inv=scale_invs[t], amax=amaxs[t])
+                meta.pre_scale = pre_scale
+                t += 1
+                param.main_grad = ScalingTensor(self._get(param.data.shape, data_start_index, buffer_type=BufferType.GRAD), meta)
+            else:
+                param.main_grad = self._get(
+                    param.data.shape, data_start_index, buffer_type=BufferType.GRAD
+                )
             if bucket_id != cur_bucket_id:
                 bucket_data_end_index = _pad_if_needed(data_start_index)
-                self._set_bucket(
-                    bucket_params=bucket_params,
-                    start_index=bucket_data_start_index,
-                    end_index=bucket_data_end_index,
-                    numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
-                    bucket_id=cur_bucket_id,
-                )
+                if self.ddp_config.grad_reduce_in_fp8:
+                    self._set_bucket(
+                        bucket_params=bucket_params,
+                        start_index=bucket_data_start_index,
+                        end_index=bucket_data_end_index,
+                        numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
+                        bucket_id=cur_bucket_id,
+                        grad_fp8=param.main_grad
+                    )
+                else:
+                    self._set_bucket(
+                        bucket_params=bucket_params,
+                        start_index=bucket_data_start_index,
+                        end_index=bucket_data_end_index,
+                        numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
+                        bucket_id=cur_bucket_id,
+                    )
                 bucket_data_start_index = bucket_data_end_index
                 bucket_params = set()
                 assert cur_bucket_id + 1 == len(self.buckets)
@@ -388,13 +548,23 @@ class ParamAndGradBuffer:
         # Add remaining params to a new bucket.
         if len(bucket_params) > 0:
             bucket_data_end_index = _pad_if_needed(data_end_index)
-            self._set_bucket(
-                bucket_params=bucket_params,
-                start_index=bucket_data_start_index,
-                end_index=bucket_data_end_index,
-                numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
-                bucket_id=cur_bucket_id,
-            )
+            if self.ddp_config.grad_reduce_in_fp8:
+                self._set_bucket(
+                    bucket_params=bucket_params,
+                    start_index=bucket_data_start_index,
+                    end_index=bucket_data_end_index,
+                    numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
+                    bucket_id=cur_bucket_id,
+                    grad_fp8=param.main_grad
+                )
+            else:
+                self._set_bucket(
+                    bucket_params=bucket_params,
+                    start_index=bucket_data_start_index,
+                    end_index=bucket_data_end_index,
+                    numel_unpadded=per_bucket_numel_unpadded[cur_bucket_id],
+                    bucket_id=cur_bucket_id,
+                )
 
         # Log buckets for all PP stages.
         if (
@@ -440,6 +610,7 @@ class ParamAndGradBuffer:
         end_index: int,
         numel_unpadded: int,
         bucket_id: int,
+        grad_fp8=None
     ):
         """
         Helper function to create new bucket, add it to list of buckets, and
@@ -462,17 +633,30 @@ class ParamAndGradBuffer:
         bucketed_grad_data = self._get(
             torch.Size([end_index - start_index]), start_index, buffer_type=BufferType.GRAD
         )
-        bucket = Bucket(
+        if self.ddp_config.grad_reduce_in_fp8:
+            bucket = Bucket(
             ddp_config=self.ddp_config,
             params=bucket_params,
             param_data=bucketed_param_data,
-            grad_data=bucketed_grad_data,
+            grad_data=grad_fp8,
             offset=start_index,
             numel_unpadded=numel_unpadded,
             data_parallel_group=self.data_parallel_group,
             data_parallel_world_size=self.data_parallel_world_size,
-            gradient_scaling_factor=self.gradient_scaling_factor,
+            gradient_scaling_factor=self.gradient_scaling_factor,            
         )
+        else:
+            bucket = Bucket(
+                ddp_config=self.ddp_config,
+                params=bucket_params,
+                param_data=bucketed_param_data,
+                grad_data=bucketed_grad_data,
+                offset=start_index,
+                numel_unpadded=numel_unpadded,
+                data_parallel_group=self.data_parallel_group,
+                data_parallel_world_size=self.data_parallel_world_size,
+                gradient_scaling_factor=self.gradient_scaling_factor,            
+            )
         self.buckets.append(bucket)
         for bucket_param in bucket_params:
             assert bucket_param not in self.param_to_bucket
@@ -498,7 +682,10 @@ class ParamAndGradBuffer:
         communication ops.
         """
         for bucket in self.buckets:
-            bucket.start_grad_sync()
+            if self.ddp_config.grad_reduce_in_fp8:
+                bucket.start_grad8bit_sync()
+            else:
+                bucket.start_grad_sync()
 
     def finish_grad_sync(self):
         """
@@ -525,3 +712,52 @@ class ParamAndGradBuffer:
         if self.is_last_microbatch:
             bucket = self.param_to_bucket[param]
             bucket.register_grad_ready(param)
+
+    # def allocate_main_grad(self, params, data_parallel_world_size):
+    #     # 创建MemoryBuffer用于FP8
+    #     self._grad_buffer_num_params = [0 for _ in range(data_parallel_world_size)]
+    #     if len(params) > 0:
+    #         self._grad_buffer_param_index_map = {}
+    #         # 按大小排序参数并分配到每个分片
+    #         params_with_size = [
+    #             (p, (-p.numel(), i % data_parallel_world_size)) for i, p in enumerate(params)
+    #         ]
+    #         params_with_size.sort(key=lambda e: e[1])
+    #         mems = [0 for _ in range(data_parallel_world_size)]
+    #         partitions = [[] for _ in range(data_parallel_world_size)]
+    #         for p, _ in params_with_size:
+    #             target_rank = mems.index(min(mems))
+    #             mems[target_rank] += p.numel()
+    #             partitions[target_rank].append(p)
+    #             self._grad_buffer_num_params[target_rank] += 1
+    #         max_mems = max(mems)
+    #         num_elements = max_mems * data_parallel_world_size
+
+    #         # 获取dtype
+    #         from ..msamp.common.dtype import Dtypes, Floating
+    #         dtype = Dtypes.kfloat8_e4m3
+
+    #         from megatron.model.distributed import MemoryBuffer
+    #         from ..msamp.common.tensor import ScalingTensor, ScalingMeta
+    #         self._grad_buffers = MemoryBuffer(num_elements, num_elements, dtype)
+    #         num_params = len(params)
+    #         window_size = 1
+    #         scales = torch.ones((num_params, ), device='cuda')
+    #         scale_invs = torch.ones((num_params, ), device='cuda')
+    #         amaxs = torch.zeros((num_params, window_size), device='cuda')
+    #         scaling_grads = []
+    #         t = 0
+    #         pre_scale = 1.0 / math.sqrt(data_parallel_world_size)
+
+    #         # 为每个参数创建main_grad(ScalingTensor)
+    #         for pi in range(data_parallel_world_size):
+    #             start = pi * max_mems
+    #             for p in partitions[pi]:
+    #                 meta = ScalingMeta(self.wgrad_qtype, scale=scales[t], scale_inv=scale_invs[t], amax=amaxs[t])
+    #                 meta.pre_scale = pre_scale
+    #                 t += 1
+    #                 p.main_grad = ScalingTensor(self._grad_buffers.get(p.shape, start), meta)
+    #                 self._grad_buffer_param_index_map[p] = (start, start + p.numel())
+    #                 start += p.numel()
+    #                 scaling_grads.append(p.main_grad)
+    #             assert start <= num_elements

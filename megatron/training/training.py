@@ -419,6 +419,7 @@ def get_model(model_provider_func, model_type=ModelType.encoder_or_decoder, wrap
         config = get_model_config(model[0])
         ddp_config = DistributedDataParallelConfig(
             grad_reduce_in_fp32=args.accumulate_allreduce_grads_in_fp32,
+            grad_reduce_in_fp8 =args.accumulate_allreduce_grads_in_fp8,
             overlap_grad_reduce=args.overlap_grad_reduce,
             use_distributed_optimizer=args.use_distributed_optimizer,
             check_for_nan_in_grad=args.check_for_nan_in_loss_and_grad,
@@ -557,6 +558,13 @@ def train_step(forward_step_func, data_iterator,
         micro_batch_size=args.micro_batch_size,
         decoder_seq_length=args.decoder_seq_length,
         forward_only=False)
+    # from ..core.utils import get_attr_wrapped_model
+    # for model_chunk in model:
+    #     for name, param in get_attr_wrapped_model(model_chunk, 'named_parameters')():
+    #             grad = param.main_grad.value
+    #             print('model_chunk')
+    #             print(grad.dtype) 
+
 
     # Empty unused memory.
     if args.empty_unused_memory_level >= 1:
