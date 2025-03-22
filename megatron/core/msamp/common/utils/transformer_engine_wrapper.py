@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import transformer_engine as te    # noqa: F401 # pylint:disable=unused-import
 import transformer_engine_torch as tex
 
-from msamp.common.dtype import QType
-from msamp.common.tensor import ScalingTensor, ScalingMeta
+from megatron.core.msamp.common.dtype import QType
+from megatron.core.msamp.common.tensor import ScalingTensor, ScalingMeta
 
 
 class PaddingTensor:

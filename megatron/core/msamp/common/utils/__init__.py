@@ -8,6 +8,6 @@ from megatron.core.msamp.common.utils.lazy_import import LazyImport
 from megatron.core.msamp.common.utils.dist import DistUtil
 from megatron.core.msamp.common.utils.device import Device
 
-TransformerEngineWrapper = LazyImport('msamp.common.utils.transformer_engine_wrapper', 'TransformerEngineWrapper')
+TransformerEngineWrapper = LazyImport('megatron.core.msamp.common.utils.transformer_engine_wrapper', 'TransformerEngineWrapper')
 
 __all__ = ['MsAmpLogger', 'TransformerEngineWrapper', 'DistUtil', 'Device']

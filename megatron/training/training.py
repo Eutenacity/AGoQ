@@ -9,6 +9,8 @@ import logging
 import math
 import os
 import sys
+
+import torch.distributed
 from .log_handler import CustomHandler
 # Make default logging level INFO, but filter out all log messages not from MCore.
 logging.basicConfig(handlers=[CustomHandler()], level=logging.INFO)
@@ -907,6 +909,25 @@ def save_checkpoint_and_time(iteration, model, optimizer, opt_param_scheduler,
 def train(forward_step_func, model, optimizer, opt_param_scheduler,
           train_data_iterator, valid_data_iterator,
           process_non_loss_data_func, config, checkpointing_context):
+    def decorate_trace_handler(rank):
+        def trace_handler(prof):
+            if rank in [0]:
+                prof.export_chrome_trace("test"+str(rank)+".json")
+            return trace_handler
+
+    prof = torch.profiler.profile(
+    activities=[
+        torch.profiler.ProfilerActivity.CPU,
+        torch.profiler.ProfilerActivity.CUDA,
+            ],
+        record_shapes=True,
+        with_stack=False,
+        schedule=torch.profiler.schedule(
+        wait=1,
+        warmup=1,
+        active=2),
+        on_trace_ready=decorate_trace_handler(0)
+        )
     """Train the model function."""
     args = get_args()
     timers = get_timers()
@@ -1006,7 +1027,7 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 'train_iterations_time_msecs_avg': train_iterations_time_msecs_avg,
                 'validation_iterations_time_msecs_avg': validation_iterations_time_msecs_avg
             })
-
+    # with prof:
     while iteration < args.train_iters:
         if args.profile and \
            iteration == args.profile_step_start and \
@@ -1181,8 +1202,104 @@ def train(forward_step_func, model, optimizer, opt_param_scheduler,
                 gc.collect()
 
     track_e2e_metrics()
+    # print("测试")
+    # if torch.distributed.get_rank() == 0:
+    #     print(torch.distributed.get_rank())
+    #     import numpy as np
+    #     import matplotlib.pyplot as plt
+    #     from scipy.stats import gaussian_kde
 
-    # Flush TensorBoard and WandB writers.
+    #     # 数据准备
+    #     # gradients = np.array(model[0].grad_histogram, dtype=object)
+    #     # 提取所有梯度的数值并展平为一维数组
+    #     print('提取所有梯度的数值并展平为一维数组')
+    #     gradients = []
+    #     for tensor in model[0].grad_histogram:
+    #         if tensor is not None:  # 过滤空值
+    #             gradients.append(tensor.cpu().numpy().flatten())  # 转NumPy并展平
+
+    #     # 合并所有梯度值
+    #     print('合并所有梯度值')
+    #     if gradients:
+    #         gradients = np.concatenate(gradients).astype(np.float64)
+    #     else:
+    #         gradients = np.array([], dtype=np.float64)  # 空数组处理
+
+    #     # 过滤无效值
+    #     # valid_gradients = gradients[np.isfinite(gradients)]
+    #     print('过滤无效值')
+    #     valid_gradients = gradients[np.isfinite(gradients)]
+    #     # valid_gradients = valid_gradients[:1000]
+
+    #     # 计算动态分箱（Freedman-Diaconis规则）
+    #     print('计算动态分箱（Freedman-Diaconis规则）')
+    #     iqr = np.percentile(valid_gradients, 75) - np.percentile(valid_gradients, 25)
+    #     n = len(valid_gradients)
+    #     bin_width = 2 * iqr / (n ** (1/3))
+    #     num_bins = int((np.max(valid_gradients) - np.min(valid_gradients)) / bin_width)
+    #     num_bins = min(num_bins, 500)  # 防止分箱过多
+    #     print(num_bins)
+
+    #     # 定义主要显示区域（排除极端值）
+    #     print('定义主要显示区域（排除极端值）')
+    #     lower = np.percentile(valid_gradients, 5)
+    #     upper = np.percentile(valid_gradients, 95)
+    #     main_data = valid_gradients[(valid_gradients >= lower) & (valid_gradients <= upper)]
+
+    #     # 创建画布
+    #     print('创建画布')
+    #     plt.figure(figsize=(12, 7))
+
+    #     # 绘制主直方图 + KDE
+    #     print('绘制主直方图 + KDE')
+    #     ax = plt.gca()
+    #     counts, bins, patches = ax.hist(
+    #         main_data, 
+    #         bins=num_bins, 
+    #         color='blue', 
+    #         alpha=0.5, 
+    #         density=True,  # 归一化以便与KDE比较
+    #         label='Gradient Distribution'
+    #     )
+
+    #     # # 叠加核密度估计（KDE）
+    #     # print('叠加核密度估计（KDE）')
+    #     # kde = gaussian_kde(main_data)
+    #     # x_vals = np.linspace(lower, upper, 1000)
+    #     # ax.plot(x_vals, kde(x_vals), color='red', linewidth=2, label='KDE')
+
+    #     # 标注统计量
+    #     print('标注统计量')
+    #     mean_val = np.mean(main_data)
+    #     median_val = np.median(main_data)
+    #     std_val = np.std(main_data)  # 计算标准差
+    #     up = mean_val + 1.5 * std_val  # 上限
+    #     down = mean_val - 1.5 * std_val  # 下限
+
+    #     ax.axvline(mean_val, color='green', linestyle='--', label=f'Mean: {mean_val:.2e}')
+    #     ax.axvline(median_val, color='purple', linestyle='-.', label=f'Median: {median_val:.2e}')
+    #     ax.axvline(up, color='orange', linestyle='--', label=f'Upper Bound: {up:.2e}')
+    #     ax.axvline(down, color='orange', linestyle='--', label=f'Lower Bound: {down:.2e}')
+
+
+    #     # 添加极端值缩略图（可选）
+    #     print('添加极端值缩略图（可选）')
+    #     inset_ax = ax.inset_axes([0.65, 0.65, 0.3, 0.25])  # 缩略图位置
+    #     inset_ax.hist(valid_gradients, bins=50, color='orange', alpha=0.7)
+    #     inset_ax.set_title('Extreme Values')
+    #     inset_ax.set_yscale('log')
+
+    #     # 图形美化
+    #     print('图形美化')
+    #     ax.set_xlabel('Gradient Value', fontsize=12)
+    #     ax.set_ylabel('Density / Frequency', fontsize=12)
+    #     ax.set_title('Gradient Distribution with Key Statistics', fontsize=14)
+    #     ax.legend()
+    #     ax.grid(True, linestyle='--', alpha=0.6)
+    #     plt.tight_layout()
+    #     plt.savefig('/workspace/ModelLink_v2/ModelLink_block_wise/main_grad_distribution.png')
+    #     plt.close()
+            # Flush TensorBoard and WandB writers.
     writer = get_tensorboard_writer()
     if writer:
         writer.flush()

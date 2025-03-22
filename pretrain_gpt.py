@@ -248,9 +248,9 @@ def main():
     # monitor_thread.start()
 
     pretrain(train_valid_test_datasets_provider,
-             model_provider,
-             ModelType.encoder_or_decoder,
-             forward_step)
+            model_provider,
+            ModelType.encoder_or_decoder,
+            forward_step)
 
 
 if __name__ == "__main__":

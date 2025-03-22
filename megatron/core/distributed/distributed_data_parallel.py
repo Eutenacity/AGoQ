@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from logging import getLogger
 from typing import Dict, Optional
-
+import bitsandbytes.functional as B_F
 import torch
 
 from .. import parallel_state
@@ -47,6 +47,7 @@ class DistributedDataParallel(MegatronModule):
         disable_bucketing: bool = False,
     ):
         super().__init__(config=config)
+        self.grad_histogram = []
         self.module = module
 
         # If bucket_size is not provided as an input, use sane default.
@@ -180,6 +181,12 @@ class DistributedDataParallel(MegatronModule):
         """
         return self.module(*inputs, **kwargs)
 
+    def add_to_8bit(self, main_grad_value, main_grad_quant_state, grad_data):
+        main_grad_value_bf16 = torch.empty_like(main_grad_value, dtype=torch.bfloat16)
+        B_F.dequantize_blockwise(main_grad_value, main_grad_quant_state, out=main_grad_value_bf16, blocksize=main_grad_quant_state.blocksize)
+        main_grad_value_bf16.add_(grad_data) 
+        B_F.quantize_blockwise(main_grad_value_bf16, code=main_grad_quant_state.code, absmax=main_grad_quant_state.absmax, out=main_grad_value, blocksize=main_grad_quant_state.blocksize)
+        
     def _make_param_hook(
         self,
         param: torch.nn.Parameter,
@@ -198,7 +205,14 @@ class DistributedDataParallel(MegatronModule):
                 if param.grad is not None and (
                     not param.grad_added_to_main_grad or getattr(param, 'zero_out_wgrad', False)
                 ):
-                    Arithmetic.add_to_fp8(param.main_grad.value, param.main_grad.meta, param.grad.data)                   
+                    if self.ddp_config.grad_reduce_in_fp8:
+                        # print(param.main_grad.value.dtype)
+                        # Arithmetic.add_to_fp8(param.main_grad.value, param.main_grad.meta, param.grad.data)  
+                        self.add_to_8bit(param.main_grad.value, param.main_grad.quant_state, param.grad.data)                    
+                    else:
+                        # self.grad_histogram.append(param.grad.data.to(torch.float32).to('cpu'))
+                        param.main_grad.add_(param.grad.data) 
+                        # self.grad_histogram.append(param.main_grad.to(torch.float32).to('cpu'))                   
                 param.grad = None
 
                 if self.ddp_config.overlap_grad_reduce:

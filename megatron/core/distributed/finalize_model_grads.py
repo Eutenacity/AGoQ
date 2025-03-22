@@ -12,41 +12,8 @@ from ..utils import get_attr_wrapped_model, get_model_config
 from ..msamp.common.tensor import ScalingTensor, ScalingMeta
 from ..msamp.common.dtype import Dtypes, Floating
 from ..msamp.operators.dist_op import DistOp
-
+from ..msamp.common.utils import TransformerEngineWrapper
 import math 
-
-def scale_fp8e4m3_tensor(fp8_tensor: torch.Tensor, scale: float) -> torch.Tensor:
-        """
-        对 FP8 E4M3 格式的 uint8 张量进行缩放（直接操作指数部分）
-        
-        Args:
-            fp8_tensor (torch.Tensor): uint8 张量，数据为 FP8 E4M3 格式
-            scale (float): 缩放因子，必须是2的整数次幂（如 2, 0.5, 4, 等）
-        
-        Returns:
-            torch.Tensor: 缩放后的 uint8 张量（FP8 E4M3 格式）
-        """
-        # 验证 scale 是2的整数次幂且为正数
-        assert scale > 0, "Scale must be positive"
-        log2_scale = math.log2(scale)
-        # print(log2_scale)
-        assert math.isclose(log2_scale, round(log2_scale), rel_tol=1e-5), \
-            "Scale must be an exact power of 2, scale:{}".format(scale)
-        k = int(round(log2_scale))
-
-        # 提取各部分位信息（无需转浮点数）
-        sign = (fp8_tensor >> 7) & 0x1          # [0,1]
-        exponent = (fp8_tensor >> 3) & 0xF      # [0,15]
-        mantissa = fp8_tensor & 0x7             # [0,7]
-
-        # 调整指数并限制范围 [0,15])
-        exponent = exponent.to(torch.int8)
-        new_exponent = torch.clamp(exponent + k, 0, 15)
-
-        # 重组为新的 FP8 E4M3 格式
-        scaled_fp8 = (sign << 7) | (new_exponent << 3) | mantissa
-
-        return scaled_fp8.to(fp8_tensor.dtype)
 
 def _allreduce_word_embedding_grads(model: List[torch.nn.Module], config: TransformerConfig):
     """
@@ -104,6 +71,82 @@ def _allreduce_embedding_grads(model: List[torch.nn.Module], config: Transformer
     _allreduce_word_embedding_grads(model, config)
     _allreduce_position_embedding_grads(model, config)
 
+def quantize_e4m3(tensor, scale):
+    wgrad_qtype = Dtypes.kfloat8_e4m3
+    dummy_amax = torch.empty((1,), device=tensor.device)  # 占位参数
+    fp8_grad = TransformerEngineWrapper.cast_to_fp8(
+            tensor.view(1, -1),
+            scale,
+            dummy_amax,
+            torch.reciprocal(scale),
+            wgrad_qtype
+        ).view_as(tensor)
+    return fp8_grad
+
+
+def dequantize_e4m3(tensor, scale_inv):
+    wgrad_qtype = Dtypes.kfloat8_e4m3
+    fp32_grad = TransformerEngineWrapper.cast_from_fp8(
+            tensor.view(1, -1),
+            scale_inv,  # 补偿预缩放
+            wgrad_qtype,
+            Dtypes.kfloat32
+        ).view_as(tensor)
+    return fp32_grad
+
+def a2a_ag(inp, meta, group = None):
+    world_size = torch.distributed.get_world_size(group)
+    # inp_shape = inp.shape
+    out = torch.empty_like(inp)
+
+    scale_inv = meta.scale_inv
+    out_scale_inv = torch.zeros(world_size, device=inp.device)
+
+    torch.distributed.all_to_all_single(out, inp, group = group)
+    torch.distributed._all_gather_base(out_scale_inv, scale_inv, group = group)
+
+    out = out.view(-1)
+    out_scale_inv = out_scale_inv.view(-1)
+
+    ag_in = out.view([world_size,out.shape[0]//world_size])
+    ag_scale_inv = out_scale_inv.view([world_size,out_scale_inv.shape[0]//world_size])
+
+    ag_in_fp32 = []
+    for i in range(world_size):
+        row1 = ag_in[i]        # 获取 tensor1 的第 i 行，形状为 (1000,)
+        row2 = ag_scale_inv[i, 0]     # 获取 tensor2 的第 i 行，形状为 (1,)
+        result_row = dequantize_e4m3(row1, row2)  # 应用 function
+        # print(result_row)
+        ag_in_fp32.append(result_row)
+    ag_in_fp32= torch.stack(ag_in_fp32, dim=0).view([world_size,out.shape[0]//world_size]).sum(0) 
+    amax_tensor = ag_in_fp32.max()
+    amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
+    torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
+    global_amax = amax_tensor.clamp(min=1e-12)
+    
+    fp_max = Floating.qfp_max[meta.qtype]
+    global_scale = ScalingMeta.compute_scaling_factor(
+        global_amax, 
+        meta.scale, 
+        fp_max, 
+        margin=0
+    ) #???
+    
+    # print(ag_in_fp32)
+    ag_in = quantize_e4m3(ag_in_fp32, global_scale)
+    
+
+    meta.amax[0] = global_amax
+    # param.main_grad.meta.scale.copy_(global_scale)
+    
+    meta.scale.copy_(global_scale)
+    meta.scale_inv.copy_(torch.reciprocal(global_scale))
+
+
+    torch.distributed._all_gather_base(out, ag_in,group = group)
+    # print("测试", out, meta.scale_inv)
+    return out.view(inp.shape)
+
 
 def _allreduce_layernorm_grads(model: List[torch.nn.Module], config: TransformerConfig):
     """
@@ -115,8 +158,7 @@ def _allreduce_layernorm_grads(model: List[torch.nn.Module], config: Transformer
     if parallel_state.get_tensor_model_parallel_world_size() > 1 and (
         config.sequence_parallel or config.qk_layernorm
     ):  
-        if config.grad_reduce_in_fp8:
-            print(config.grad_reduce_in_fp8)
+        if config.accumulate_allreduce_grads_in_fp8:
             grads = []
             for model_chunk in model:
                 for name, param in get_attr_wrapped_model(model_chunk, 'named_parameters')():
@@ -126,39 +168,60 @@ def _allreduce_layernorm_grads(model: List[torch.nn.Module], config: Transformer
                         or 'q_layernorm' in name
                         or 'k_layernorm' in name
                     ):
-                        grad = param.main_grad.value
-                        wgrad_qtype = param.main_grad.meta.qtype
-            
-                        amax_tensor = param.main_grad.meta.amax
-                            # amax_tensor = torch.tensor([amax], device=device)
-                        amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
-                        torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
-                        global_amax = amax_tensor[0].clamp(min=1e-12)
-                        # print(self.grad_data.meta.scale)
-
-                        fp_max = Floating.qfp_max[wgrad_qtype]
-                        new_scale = ScalingMeta.compute_scaling_factor(
-                            global_amax, 
-                            param.main_grad.meta.scale, 
-                            fp_max, 
-                            margin=0
-                        ) #???
-
-                        fp8_scale = new_scale.div(param.main_grad.meta.scale)
-
-                        param.main_grad.value = scale_fp8e4m3_tensor(param.main_grad.value, fp8_scale)
-
-                        param.main_grad.meta.amax[0] = global_amax
-                        param.main_grad.meta.scale.copy_(new_scale)
-                        param.main_grad.meta.scale_inv.copy_(torch.reciprocal(new_scale))
-
-                        DistOp.all_reduce(
-                            param.main_grad.value,  # 访问底层int8数据
-                            wgrad_qtype,
-                            torch.distributed.ReduceOp.SUM,
-                            group=torch.distributed.group.WORLD,
-                            async_op=False
+                        import bitsandbytes.functional as B_F
+                        # param.main_grad.value.copy_(a2a_ag(
+                        #     param.main_grad.value,  # 访问底层uint8数据
+                        #     param.main_grad.meta,
+                        #     group=parallel_state.get_tensor_model_parallel_group(),
+                        # ))
+                        
+                        fp_grad = torch.empty_like(param.main_grad.value, dtype=torch.bfloat16)
+                        B_F.dequantize_blockwise(param.main_grad.value, param.main_grad.quant_state, out=fp_grad , blocksize=param.main_grad.quant_state.blocksize)
+                        
+                        
+                        torch.distributed.all_reduce(
+                            fp_grad,
+                            group=parallel_state.get_tensor_model_parallel_group(),
+                            async_op=False, # false
                         )
+                        
+                        B_F.quantize_blockwise(fp_grad, code=param.main_grad.quant_state.code, absmax=param.main_grad.quant_state.absmax, out=param.main_grad.value, blocksize=param.main_grad.quant_state.blocksize)
+
+                        
+                        
+                        # grad = param.main_grad.value
+                        # wgrad_qtype = param.main_grad.meta.qtype
+            
+                        # amax_tensor = param.main_grad.meta.amax
+                        #     # amax_tensor = torch.tensor([amax], device=device)
+                        # amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
+                        # torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
+                        # global_amax = amax_tensor[0].clamp(min=1e-12)
+                        # # print(param.main_grad.meta.scale)
+
+                        # fp_max = Floating.qfp_max[wgrad_qtype]
+                        # new_scale = ScalingMeta.compute_scaling_factor(
+                        #     global_amax, 
+                        #     param.main_grad.meta.scale, 
+                        #     fp_max, 
+                        #     margin=0
+                        # ) #???
+
+                        # fp8_scale = new_scale.div(param.main_grad.meta.scale)
+
+                        # param.main_grad.value = scale_fp8e4m3_tensor(param.main_grad.value, fp8_scale)
+
+                        # param.main_grad.meta.amax[0] = global_amax
+                        # param.main_grad.meta.scale.copy_(new_scale)
+                        # param.main_grad.meta.scale_inv.copy_(torch.reciprocal(new_scale))
+
+                        # DistOp.all_reduce(
+                        #     param.main_grad.value,  # 访问底层int8数据
+                        #     wgrad_qtype,
+                        #     torch.distributed.ReduceOp.SUM,
+                        #     group=torch.distributed.group.WORLD,
+                        #     async_op=False
+                        # )
         else:
             grads = []
             for model_chunk in model:

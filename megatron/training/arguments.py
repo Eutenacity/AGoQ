@@ -282,12 +282,13 @@ def validate_args(args, defaults={}):
         args.params_dtype = torch.bfloat16
         # bfloat16 requires gradient accumulation and all-reduce to
         # be done in fp32.
-        # if not args.accumulate_allreduce_grads_in_fp32:
-        #     args.accumulate_allreduce_grads_in_fp32 = True
-        #     if args.rank == 0:
-        #         print('accumulate and all-reduce gradients in fp32 for '
-        #               'bfloat16 data type.', flush=True)
-        # args.accumulate_allreduce_grads_in_fp32 = False
+        if not args.accumulate_allreduce_grads_in_fp32:
+            args.accumulate_allreduce_grads_in_fp32 = True
+            if args.rank == 0:
+                print('accumulate and all-reduce gradients in fp32 for '
+                      'bfloat16 data type.', flush=True)
+        if args.accumulate_allreduce_grads_in_bf16:
+            args.accumulate_allreduce_grads_in_fp32 = False
         
     if args.rank == 0:
         print('using {} for parameters ...'.format(args.params_dtype),
@@ -1291,6 +1292,9 @@ def _add_mixed_precision_args(parser):
     group.add_argument('--accumulate-allreduce-grads-in-fp8',
                        action='store_true',
                        help='Gradient accumulation and all-reduce in fp8.')
+    group.add_argument('--accumulate-allreduce-grads-in-bf16',
+                       action='store_true',
+                       help='Gradient accumulation and all-reduce in bf16.')
     group.add_argument('--fp16-lm-cross-entropy', action='store_true',
                        help='Move the cross entropy unreduced loss calculation'
                        'for lm head to fp16.')

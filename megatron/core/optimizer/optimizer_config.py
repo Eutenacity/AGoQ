@@ -5,7 +5,7 @@ import torch
 @dataclass
 class OptimizerConfig:
     """Configuration for optimizer."""
-
+    accumulate_allreduce_grads_in_fp8: bool = False
     ##############
     # General
     ##############
