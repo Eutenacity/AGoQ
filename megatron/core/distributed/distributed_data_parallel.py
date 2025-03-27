@@ -12,7 +12,6 @@ from ..transformer.transformer_config import TransformerConfig
 from .distributed_data_parallel_config import DistributedDataParallelConfig
 from .param_and_grad_buffer import ParamAndGradBuffer
 
-from megatron.core.msamp.operators.arithmetic import Arithmetic
 logger = getLogger(__name__)
 
 

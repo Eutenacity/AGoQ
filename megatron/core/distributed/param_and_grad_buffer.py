@@ -13,10 +13,6 @@ import bitsandbytes.functional as B_F
 from .. import parallel_state
 from .distributed_data_parallel_config import DistributedDataParallelConfig
 
-from ..msamp.common.tensor import ScalingTensor, ScalingMeta
-from ..msamp.common.dtype import Dtypes, Floating
-from ..msamp.operators.dist_op import DistOp
-from ..msamp.common.utils import TransformerEngineWrapper
 logger = getLogger(__name__)
 
 
@@ -273,28 +269,28 @@ class Bucket:
 
     #     return value
     
-    def quantize_e4m3(self,tensor, scale):
-        wgrad_qtype = Dtypes.kfloat8_e4m3
-        dummy_amax = torch.empty((1,), device=tensor.device)  # 占位参数
-        fp8_grad = TransformerEngineWrapper.cast_to_fp8(
-                tensor.view(1, -1),
-                scale,
-                dummy_amax,
-                torch.reciprocal(scale),
-                wgrad_qtype
-            ).view_as(tensor)
-        return fp8_grad
+    # def quantize_e4m3(self,tensor, scale):
+    #     wgrad_qtype = Dtypes.kfloat8_e4m3
+    #     dummy_amax = torch.empty((1,), device=tensor.device)  # 占位参数
+    #     fp8_grad = TransformerEngineWrapper.cast_to_fp8(
+    #             tensor.view(1, -1),
+    #             scale,
+    #             dummy_amax,
+    #             torch.reciprocal(scale),
+    #             wgrad_qtype
+    #         ).view_as(tensor)
+    #     return fp8_grad
 
 
-    def dequantize_e4m3(self,tensor, scale_inv):
-        wgrad_qtype = Dtypes.kfloat8_e4m3
-        fp32_grad = TransformerEngineWrapper.cast_from_fp8(
-                tensor.view(1, -1),
-                scale_inv,  # 补偿预缩放
-                wgrad_qtype,
-                Dtypes.kfloat32
-            ).view_as(tensor)
-        return fp32_grad
+    # def dequantize_e4m3(self,tensor, scale_inv):
+    #     wgrad_qtype = Dtypes.kfloat8_e4m3
+    #     fp32_grad = TransformerEngineWrapper.cast_from_fp8(
+    #             tensor.view(1, -1),
+    #             scale_inv,  # 补偿预缩放
+    #             wgrad_qtype,
+    #             Dtypes.kfloat32
+    #         ).view_as(tensor)
+    #     return fp32_grad
 
     def get_split_sizes(self, total_dim, num_splits):
         if num_splits <= 0:
@@ -979,52 +975,3 @@ class ParamAndGradBuffer:
         if self.is_last_microbatch:
             bucket = self.param_to_bucket[param]
             bucket.register_grad_ready(param)
-
-    # def allocate_main_grad(self, params, data_parallel_world_size):
-    #     # 创建MemoryBuffer用于FP8
-    #     self._grad_buffer_num_params = [0 for _ in range(data_parallel_world_size)]
-    #     if len(params) > 0:
-    #         self._grad_buffer_param_index_map = {}
-    #         # 按大小排序参数并分配到每个分片
-    #         params_with_size = [
-    #             (p, (-p.numel(), i % data_parallel_world_size)) for i, p in enumerate(params)
-    #         ]
-    #         params_with_size.sort(key=lambda e: e[1])
-    #         mems = [0 for _ in range(data_parallel_world_size)]
-    #         partitions = [[] for _ in range(data_parallel_world_size)]
-    #         for p, _ in params_with_size:
-    #             target_rank = mems.index(min(mems))
-    #             mems[target_rank] += p.numel()
-    #             partitions[target_rank].append(p)
-    #             self._grad_buffer_num_params[target_rank] += 1
-    #         max_mems = max(mems)
-    #         num_elements = max_mems * data_parallel_world_size
-
-    #         # 获取dtype
-    #         from ..msamp.common.dtype import Dtypes, Floating
-    #         dtype = Dtypes.kfloat8_e4m3
-
-    #         from megatron.model.distributed import MemoryBuffer
-    #         from ..msamp.common.tensor import ScalingTensor, ScalingMeta
-    #         self._grad_buffers = MemoryBuffer(num_elements, num_elements, dtype)
-    #         num_params = len(params)
-    #         window_size = 1
-    #         scales = torch.ones((num_params, ), device='cuda')
-    #         scale_invs = torch.ones((num_params, ), device='cuda')
-    #         amaxs = torch.zeros((num_params, window_size), device='cuda')
-    #         scaling_grads = []
-    #         t = 0
-    #         pre_scale = 1.0 / math.sqrt(data_parallel_world_size)
-
-    #         # 为每个参数创建main_grad(ScalingTensor)
-    #         for pi in range(data_parallel_world_size):
-    #             start = pi * max_mems
-    #             for p in partitions[pi]:
-    #                 meta = ScalingMeta(self.wgrad_qtype, scale=scales[t], scale_inv=scale_invs[t], amax=amaxs[t])
-    #                 meta.pre_scale = pre_scale
-    #                 t += 1
-    #                 p.main_grad = ScalingTensor(self._grad_buffers.get(p.shape, start), meta)
-    #                 self._grad_buffer_param_index_map[p] = (start, start + p.numel())
-    #                 start += p.numel()
-    #                 scaling_grads.append(p.main_grad)
-    #             assert start <= num_elements

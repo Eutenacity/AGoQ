@@ -24,8 +24,6 @@ from ..transformer.module import param_is_not_shared
 from .clip_grads import clip_grad_norm_fp32, count_zeros_fp32
 from .grad_scaler import MegatronGradScaler
 from .optimizer_config import OptimizerConfig
-from ..msamp.common.dtype import Dtypes
-from ..msamp.common.utils import TransformerEngineWrapper
 
 logger = getLogger(__name__)
 
@@ -493,16 +491,6 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                 model_data.append(model_param.data)
                 main_data.append(main_param.data)
         return model_data, main_data
-
-    def _dequantize_e4m3(self, tensor, scale_inv):
-        wgrad_qtype = Dtypes.kfloat8_e4m3
-        fp32_grad = TransformerEngineWrapper.cast_from_fp8(
-                tensor.view(1, -1),
-                scale_inv,  # 补偿预缩放
-                wgrad_qtype,
-                Dtypes.kfloat32
-            ).view_as(tensor)
-        return fp32_grad
 
     def _copy_model_grads_to_main_grads(self):
         # This only needs to be done for the float16 group.

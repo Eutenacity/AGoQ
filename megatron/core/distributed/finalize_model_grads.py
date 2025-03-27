@@ -9,10 +9,7 @@ from .. import parallel_state
 from ..transformer.transformer_config import TransformerConfig
 from ..utils import get_attr_wrapped_model, get_model_config
 
-from ..msamp.common.tensor import ScalingTensor, ScalingMeta
-from ..msamp.common.dtype import Dtypes, Floating
-from ..msamp.operators.dist_op import DistOp
-from ..msamp.common.utils import TransformerEngineWrapper
+import bitsandbytes.functional as B_F
 import math 
 
 def _allreduce_word_embedding_grads(model: List[torch.nn.Module], config: TransformerConfig):
@@ -71,80 +68,64 @@ def _allreduce_embedding_grads(model: List[torch.nn.Module], config: Transformer
     _allreduce_word_embedding_grads(model, config)
     _allreduce_position_embedding_grads(model, config)
 
-def quantize_e4m3(tensor, scale):
-    wgrad_qtype = Dtypes.kfloat8_e4m3
-    dummy_amax = torch.empty((1,), device=tensor.device)  # 占位参数
-    fp8_grad = TransformerEngineWrapper.cast_to_fp8(
-            tensor.view(1, -1),
-            scale,
-            dummy_amax,
-            torch.reciprocal(scale),
-            wgrad_qtype
-        ).view_as(tensor)
-    return fp8_grad
-
-
-def dequantize_e4m3(tensor, scale_inv):
-    wgrad_qtype = Dtypes.kfloat8_e4m3
-    fp32_grad = TransformerEngineWrapper.cast_from_fp8(
-            tensor.view(1, -1),
-            scale_inv,  # 补偿预缩放
-            wgrad_qtype,
-            Dtypes.kfloat32
-        ).view_as(tensor)
-    return fp32_grad
-
-def a2a_ag(inp, meta, group = None):
+def a2a_ag(inp, quant_state, group = None):
     world_size = torch.distributed.get_world_size(group)
-    # inp_shape = inp.shape
     out = torch.empty_like(inp)
+    if inp.numel() % world_size != 0 or (inp.numel() // world_size) % quant_state.blocksize != 0:
+        fp_grad = torch.empty_like(inp, dtype=torch.bfloat16)
+        B_F.dequantize_blockwise(inp, quant_state, out=fp_grad , blocksize=quant_state.blocksize)
+                    
+        torch.distributed.all_reduce(
+            fp_grad,
+            group=group,
+            async_op=False, # false
+        )
+        
+        B_F.quantize_blockwise(fp_grad, code=quant_state.code, absmax=quant_state.absmax, out=out, blocksize=quant_state.blocksize)
+        return out.view(inp.shape)
 
-    scale_inv = meta.scale_inv
-    out_scale_inv = torch.zeros(world_size, device=inp.device)
+    assert ((inp.numel() % world_size == 0) and (inp.numel() // world_size) % quant_state.blocksize == 0), 'input size mod blocksize must be 0'
+    # inp_shape = inp.shape
+
+    
+    absmax = quant_state.absmax
+    
+    out_absmax = torch.empty_like(absmax)
 
     torch.distributed.all_to_all_single(out, inp, group = group)
-    torch.distributed._all_gather_base(out_scale_inv, scale_inv, group = group)
+    torch.distributed.all_to_all_single(out_absmax, absmax, group = group)
 
     out = out.view(-1)
-    out_scale_inv = out_scale_inv.view(-1)
+    out_absmax = out_absmax.view(-1)
 
     ag_in = out.view([world_size,out.shape[0]//world_size])
-    ag_scale_inv = out_scale_inv.view([world_size,out_scale_inv.shape[0]//world_size])
+    ag_absmax = out_absmax.view([world_size,out_absmax.shape[0]//world_size])
+    
+    # print(ag_in.shape)
 
     ag_in_fp32 = []
     for i in range(world_size):
         row1 = ag_in[i]        # 获取 tensor1 的第 i 行，形状为 (1000,)
-        row2 = ag_scale_inv[i, 0]     # 获取 tensor2 的第 i 行，形状为 (1,)
-        result_row = dequantize_e4m3(row1, row2)  # 应用 function
+        row2 = ag_absmax[i]     # 获取 tensor2 的第 i 行，形状为 (1,)
+        result_row = torch.empty_like(row1, dtype=torch.bfloat16)
+        B_F.dequantize_blockwise(row1, absmax=row2, out=result_row , blocksize=quant_state.blocksize)
         # print(result_row)
         ag_in_fp32.append(result_row)
+        
+        absmax_numel = row2.numel()
     ag_in_fp32= torch.stack(ag_in_fp32, dim=0).view([world_size,out.shape[0]//world_size]).sum(0) 
-    amax_tensor = ag_in_fp32.max()
-    amax_tensor.nan_to_num_(nan=torch.inf, posinf=torch.inf)  # 处理异常值
-    torch.distributed.all_reduce(amax_tensor, op=torch.distributed.ReduceOp.MAX)
-    global_amax = amax_tensor.clamp(min=1e-12)
     
-    fp_max = Floating.qfp_max[meta.qtype]
-    global_scale = ScalingMeta.compute_scaling_factor(
-        global_amax, 
-        meta.scale, 
-        fp_max, 
-        margin=0
-    ) #???
-    
-    # print(ag_in_fp32)
-    ag_in = quantize_e4m3(ag_in_fp32, global_scale)
-    
+    absmax_local = torch.zeros(absmax_numel, dtype=torch.float32, device=ag_in_fp32.device)
+    ag_local = torch.zeros(ag_in_fp32.numel(), dtype=torch.uint8, device=ag_in_fp32.device)
+    B_F.quantize_blockwise(ag_in_fp32, code=quant_state.code, absmax=absmax_local, out=ag_local, blocksize=quant_state.blocksize)
 
-    meta.amax[0] = global_amax
-    # param.main_grad.meta.scale.copy_(global_scale)
+    # print(out.shape, ag_local.shape, quant_state.absmax.shape, absmax_local.shape)
     
-    meta.scale.copy_(global_scale)
-    meta.scale_inv.copy_(torch.reciprocal(global_scale))
-
-
-    torch.distributed._all_gather_base(out, ag_in,group = group)
+    torch.distributed._all_gather_base(out, ag_local,group = group)
+    torch.distributed._all_gather_base(quant_state.absmax, absmax_local,group = group)
     # print("测试", out, meta.scale_inv)
+    # quant_state.absmax.copy_(out_absmax)
+    
     return out.view(inp.shape)
 
 
