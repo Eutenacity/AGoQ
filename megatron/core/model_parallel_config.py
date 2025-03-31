@@ -1,9 +1,10 @@
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 
-from dataclasses import dataclass
+from dataclasses import dataclass,field
 from typing import Callable, ContextManager, Optional
 
 import torch
+from typing import TYPE_CHECKING, List, Optional, Union
 
 
 @dataclass
@@ -47,6 +48,15 @@ class ModelParallelConfig:
        across expert_model_parallel_size, each expert is sharded along extendended tensor parallel
        domain (tensor_model_paralle_size * expert_model_parallel_size). It avoids the load balancing
        problem with MOE training. 
+    """
+    
+    activation_quantization_type: str="fp16"
+    """Compress activation tensor ​​for backward
+       Quantization type
+    """
+    activation_quantization_args: Optional[Union[str, dict]] = field(default_factory=dict)
+    """Compress activation tensor ​​for backward
+       Quantization args
     """
 
     ###################

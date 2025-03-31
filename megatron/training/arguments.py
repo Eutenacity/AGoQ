@@ -8,7 +8,8 @@ import json
 import os
 import torch
 import types
-
+import json
+import re
 import torch.nn.functional as F
 from megatron.core.models.retro.utils import (
     get_config_path as get_retro_config_path,
@@ -547,6 +548,29 @@ def _print_args(title, args):
 def _check_arg_is_not_none(args, arg):
     assert getattr(args, arg) is not None, '{} argument is None'.format(arg)
 
+def convert_args_to_dict(value:str):
+    def parse_kv_pairs(s: str) -> dict:
+        d = {}
+        for part in s.strip().split(','):
+            if not part: continue  # 跳过空部分
+            k, v = part.split('=', 1)
+            v = v.strip(' \t\n\r"\'')  # 去除所有空白和引号
+            
+            # 类型推断
+            if v.lower() in ('true', 'false'):
+                d[k] = v.lower() == 'true'
+            elif v.isdigit():
+                d[k] = int(v)
+            elif re.match(r'^[+-]?\d+\.\d+$', v):
+                d[k] = float(v)
+            else:
+                d[k] = v
+        return d
+    if isinstance(value, str):
+        try:
+            return json.loads(value)  # 先尝试解析为JSON
+        except json.JSONDecodeError:
+            return parse_kv_pairs(value)  # 失败则按key=value解析
 
 def core_transformer_config_from_args(args, config_class=None):
 
@@ -620,7 +644,16 @@ def _add_transformer_engine_args(parser):
     group.add_argument('--transformer-impl', default='transformer_engine',
                        choices=['local', 'transformer_engine'],
                        help='Which Transformer implementation to use.')
-
+    group.add_argument('--rotary-base', type=int,default=10000,
+                       help='Which Transformer implementation to use.',
+                       dest='rotary_base')
+    group.add_argument('--activation-quantization-type', type=str,default="fp16",
+                       help='Quantizer.Compress activation tensor ​​for backward.',
+                       dest='activation_quantization_type')
+    #这个暂时不加choices
+    group.add_argument('--activation_quantization_args', type=convert_args_to_dict,default={},
+                       help='Quantizer args.Compress activation tensor ​​for backward.',
+                       dest='activation_quantization_args')
     return parser
 
 def _add_inference_args(parser):

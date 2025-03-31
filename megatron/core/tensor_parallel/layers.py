@@ -620,7 +620,7 @@ def linear_with_grad_accumulation_and_async_allreduce(
 linear_with_grad_accumulation_and_async_allreduce.warned = False
 
 
-from gact.ops import op_quantize, op_dequantize
+from ..quantizer import activation_quantize,activation_dequantize
 
 #存量化后的a，不offload
 class OffloadReload(torch.autograd.Function):
@@ -631,7 +631,7 @@ class OffloadReload(torch.autograd.Function):
     record = True
     nbytes = 0
     @staticmethod
-    def forward(ctx,x,hidden_state):
+    def forward(ctx,x,hidden_state,act_quant_type,act_auant_args):
         ctx.device = hidden_state.device
         
         if OffloadReload.gpu_storage is None:
@@ -641,13 +641,15 @@ class OffloadReload(torch.autograd.Function):
         ctx.input_shape = hidden_state.shape
 
         with torch.no_grad():
-            q_input, q_bit, q_scale, q_min = op_quantize(hidden_state.data.half(), 4, 1)
-            nbytes = q_input.nbytes
+            q_input,q_argument,q_type=activation_quantize(hidden_state.data.half(),quan_type=act_quant_type,config=act_auant_args)
+            nbytes = q_input[0].nbytes
+            # q_input, q_bit, q_scale, q_min = op_quantize(hidden_state.data.half(), 4, 1)
+            # nbytes = q_input.nbytes
         
 
 
-        ctx.q_bit, ctx.q_scale, ctx.q_min =  q_bit, q_scale, q_min
-
+        # ctx.q_bit, ctx.q_scale, ctx.q_min =  q_bit, q_scale, q_min
+        ctx.q_argument,ctx.q_type=q_argument,q_type
         ctx.hidden_state = hidden_state
         ctx.q_input = q_input
         hidden_state.data = torch.as_tensor(OffloadReload.gpu_storage[:hidden_state.nbytes],dtype = hidden_state.dtype,device =ctx.device ).view(hidden_state.shape)
@@ -656,30 +658,33 @@ class OffloadReload(torch.autograd.Function):
     def backward(ctx,grad):
 
         with torch.no_grad():
-            q_inputs = [ctx.q_input, ctx.q_bit, ctx.q_scale, ctx.q_min]
-            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
+            # q_inputs = [ctx.q_input, ctx.q_bit, ctx.q_scale, ctx.q_min]
+            # ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
+            ret=activation_dequantize(ctx.q_input,ctx.q_argument,ctx.q_type,dtype=ctx.hidden_state.dtype)
         
         # ret = torch.as_tensor(OffloadReload.gpu_storage[:ctx.hidden_state.nbytes],dtype = ctx.hidden_state.dtype,device =ctx.device ).view(ctx.hidden_state.shape)
         ctx.hidden_state.data.copy_(ret) 
 
-        return grad,None
+        return grad,None,None,None
 
 class CustomLN_Pre(torch.autograd.Function):
     
     @staticmethod
-    def forward(ctx,input_,ln_fun,share_list):
+    def forward(ctx,input_,ln_fun,share_list,act_quant_type,act_auant_args):
         ctx.share_list = share_list
         
 
         with torch.no_grad():
             out = ln_fun(input_)
 
-            q_input, q_bit, q_scale, q_min = op_quantize(input_.data.half(), 8, 1)
+            # q_input, q_bit, q_scale, q_m1in = op_quantize(input_.data.half(), bit, 1)
+            q_input,q_argument,q_type=activation_quantize(input_.data.half(),quan_type=act_quant_type,config=act_auant_args)
           
         out = out.detach()
         out.requires_grad = True
 
-        q_inputs = q_input, q_bit, q_scale, q_min
+        # q_inputs = q_input, q_bit, q_scale, q_min
+        q_inputs = q_input,q_argument,q_type
         share_list[0] = q_inputs
         
         return out
@@ -691,7 +696,7 @@ class CustomLN_Pre(torch.autograd.Function):
         ctx.share_list[0] = None
         ctx.share_list[1] = None
         ctx.share_list[2] = None
-        return out_grad,None,None
+        return out_grad,None,None,None,None
 
 class CustomLN_Post(torch.autograd.Function):
     
@@ -718,8 +723,10 @@ class CustomLN_Post(torch.autograd.Function):
     def backward(ctx,grad):
         
         with torch.no_grad():
-            q_inputs = ctx.share_list[0]
-            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
+            q_input,q_argument,q_type=ctx.share_list[0]
+            ret=activation_dequantize(q_input,q_argument,q_type,dtype=ctx.hidden_state.dtype)
+            # q_inputs = ctx.share_list[0]
+            # ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
         
         ret.requires_grad = True
         ret.retain_grad()
@@ -772,9 +779,10 @@ class ColumnParallelLinear(torch.nn.Module):
         is_expert: bool = False,
         tp_comm_buffer_name: str = None,  # Not used
         disable_grad_reduce: bool = False,
+        layer_idx = 0,
     ):
         super(ColumnParallelLinear, self).__init__()
-
+        self.layer_idx = 0
         # Keep input parameters
         self.input_size = input_size
         self.output_size = output_size
@@ -787,7 +795,10 @@ class ColumnParallelLinear(torch.nn.Module):
         self.grad_output_buffer = grad_output_buffer
         self.config = config
         self.disable_grad_reduce = disable_grad_reduce
-
+        #activation_quantization
+        self.activation_quantization_type=config.activation_quantization_type
+        self.activation_quantization_args=config.activation_quantization_args
+        
         self.explicit_expert_comm = self.is_expert and (
             config.tensor_model_parallel_size > 1 or self.expert_parallel
         )
@@ -920,8 +931,9 @@ class ColumnParallelLinear(torch.nn.Module):
         """
         share_list = [None,None,None]
         if ln_fun is not None:
-            # input_ = act_fun(input_)
-            input_ = CustomLN_Pre.apply(input_,ln_fun,share_list)
+            # bit = 2 #if self.layer_idx<16 else 4
+            bit = 2 # if self.layer_idx<2 else 4
+            input_ = CustomLN_Pre.apply(input_,ln_fun,share_list,self.activation_quantization_type,self.activation_quantization_args)
 
         if weight is None:
             if self.weight is None:
@@ -1011,18 +1023,19 @@ class ColumnParallelLinear(torch.nn.Module):
 class CustomACT_Pre(torch.autograd.Function):
     
     @staticmethod
-    def forward(ctx,input_,act_fun,share_list):
+    def forward(ctx,input_,act_fun,share_list,act_quant_type,act_auant_args):
         ctx.share_list = share_list
 
         with torch.no_grad():
             out = act_fun(input_)
 
-            q_input, q_bit, q_scale, q_min = op_quantize(input_.data.half(), 8, 1)
+            # q_input, q_bit, q_scale, q_min = op_quantize(input_.data.half(), bit, 1)
+            q_input,q_argument,q_type=activation_quantize(input_.data.half(),quan_type=act_quant_type,config=act_auant_args)
           
         out = out.detach()
         out.requires_grad = True
-
-        q_inputs = q_input, q_bit, q_scale, q_min
+        # q_inputs = q_input, q_bit, q_scale, q_min
+        q_inputs =  q_input,q_argument,q_type
         share_list[0] = q_inputs
         share_list[3] = input_.shape
         
@@ -1037,7 +1050,7 @@ class CustomACT_Pre(torch.autograd.Function):
         ctx.share_list[1] = None
         ctx.share_list[2] = None
         ctx.share_list[3] = None
-        return out_grad,None,None
+        return out_grad,None,None,None,None
 
 class CustomACT_Post(torch.autograd.Function):
     
@@ -1064,9 +1077,11 @@ class CustomACT_Post(torch.autograd.Function):
     def backward(ctx,grad):
         
         with torch.no_grad():
-            q_inputs = ctx.share_list[0]
-            ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
-      
+            # q_inputs = ctx.share_list[0]
+            q_input,q_argument,q_type=ctx.share_list[0]
+            # ret = op_dequantize(q_inputs, ctx.input_shape).to(ctx.hidden_state.dtype)
+            ret=activation_dequantize(q_input,q_argument,q_type,dtype=ctx.hidden_state.dtype)
+
         ret.requires_grad = True
         ret.retain_grad()
         ctx.share_list[1] = ret
@@ -1111,9 +1126,14 @@ class RowParallelLinear(torch.nn.Module):
         keep_master_weight_for_test: bool = False,
         is_expert: bool = False,
         tp_comm_buffer_name: str = None,  # Not used
+        layer_idx = 0,
     ):
         super(RowParallelLinear, self).__init__()
-
+        self.layer_idx = layer_idx
+        #activation_quantization
+        self.activation_quantization_type=config.activation_quantization_type
+        self.activation_quantization_args=config.activation_quantization_args
+        
         # Keep input parameters
         self.input_size = input_size
         self.output_size = output_size
@@ -1227,7 +1247,9 @@ class RowParallelLinear(torch.nn.Module):
         share_list = [None,None,None,None]
         if act_fun is not None:
             # input_ = act_fun(input_)
-            input_ = CustomACT_Pre.apply(input_,act_fun,share_list)
+            # bit = 2 #if self.layer_idx <16 else 4
+            bit = 2 #if self.layer_idx<2 else 4
+            input_ = CustomACT_Pre.apply(input_,act_fun,share_list,self.activation_quantization_type,self.activation_quantization_args)
         if self.config._cpu_offloading_context is not None:
             if self.config._cpu_offloading_context.inside_context == True:
                 assert (
@@ -1259,7 +1281,7 @@ class RowParallelLinear(torch.nn.Module):
             allreduce_dgrad=allreduce_dgrad,
         )
         if act_fun is None:
-            output_parallel= OffloadReload.apply(output_parallel,input_parallel)
+            output_parallel= OffloadReload.apply(output_parallel,input_parallel,self.activation_quantization_type,self.activation_quantization_args)
         else:
             # output_parallel= OffloadReload.apply(output_parallel,input_)
             output_parallel = CustomACT_Post.apply(output_parallel,input_parallel,act_fun,share_list)
