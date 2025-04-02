@@ -267,12 +267,10 @@ def __act_quan_split(
         quant_storage=torch.uint8,
         split_tensor=split_tensor,
         merge_tensor=merge_tensor):
-    time1=time.time()
     std_dev=abs(std_dev)
     group_in, group_out, mask,shape,sita,mean = split_tensor(inputTensor, std_dev)
     threshold=std_dev*sita*yu
     group_out=torch.where(group_out > 0, group_out - threshold, group_out + threshold)
-    time2=time.time()
     group_in_q_input,group_in_q_scale=quantize_4bit(
         group_in,
         quant_type=quant_type_in,
@@ -287,10 +285,6 @@ def __act_quan_split(
         compress_statistics=compress_statistics,
         quant_storage=quant_storage
     )
-    time3=time.time()
-    split_time=time2-time1
-    quan_time=time3-time2
-    quan_timelist.append((inputTensor.numel(),split_time*1000000,quan_time*1000000))
     tensors=(group_in_q_input,group_in_q_scale,group_out_q_input,group_out_q_scale,mask)
     arguments=(shape,threshold,group_size_in,group_size_out,quant_type_in,quant_type_out,mean,merge_tensor)
     return tensors,arguments  
@@ -299,16 +293,10 @@ def __act_quan_split(
 def __act_dequan_split(tensors:tuple[torch.tensor],arguments:tuple):
     (group_in_q_input,group_in_q_scale,group_out_q_input,group_out_q_scale,mask)=tensors
     (shape,threshold,group_size_in,group_size_out,quant_type_in,quant_type_out,mean,merge_tensor)=arguments
-    time1=time.time()
     group_in=dequantize_4bit(group_in_q_input,group_in_q_scale,group_in_q_scale.absmax,out=None,blocksize=group_size_in,quant_type=quant_type_in)
     group_out=dequantize_4bit(group_out_q_input,group_out_q_scale,group_out_q_scale.absmax,out=None,blocksize=group_size_out,quant_type=quant_type_out)
-    time2=time.time()
     group_out=torch.where(group_out > 0, group_out + threshold, group_out - threshold)
     output=merge_tensor(group_in=group_in,group_out=group_out,mask_uint8=mask,original_shape=shape,mean=mean)
-    time3=time.time()
-    dequan_time=time2-time1
-    merge_time=time3-time2
-    dequan_timelist.append((output.numel(),dequan_time*1000000,merge_time*1000000))
     return output
 
 def __act_quan_split_gact(
