@@ -50,6 +50,9 @@ class ModelParallelConfig:
        problem with MOE training. 
     """
     
+    rotary_base: int=10000
+    """"""
+
     activation_quantization_type: str="fp16"
     """Compress activation tensor ​​for backward
        Quantization type

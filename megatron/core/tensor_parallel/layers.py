@@ -39,6 +39,8 @@ from .mappings import (
 from .random import get_cuda_rng_tracker, get_expert_parallel_rng_tracker_name
 from .utils import VocabUtility, divide, split_tensor_along_last_dim
 
+import copy
+
 _grad_accum_fusion_available = True
 try:
     import fused_weight_gradient_mlp_cuda
@@ -702,24 +704,32 @@ class CustomLN_Post(torch.autograd.Function):
     
     @staticmethod
     def forward(ctx,output, hidden_state,ln_fun,share_list):
+        # try:
         ctx.share_list = share_list
         ctx.ln_fun = ln_fun 
         ctx.device = hidden_state.device
         
         if OffloadReload.gpu_storage is None:
             OffloadReload.gpu_storage = torch.UntypedStorage(8192*8192*4*3,device = ctx.device)
-       
+
         ctx.input_shape = hidden_state.shape
         
 
 
         ctx.hidden_state = hidden_state
-
+        
         
         hidden_state.data = torch.as_tensor(OffloadReload.gpu_storage[:hidden_state.nbytes],dtype = hidden_state.dtype,device =ctx.device ).view(hidden_state.shape)
         
-        
+
+
         return output
+        # #获取所有异常
+        # except Exception as e:
+        #     pring("=============================")
+        #     print("hidden_state",hidden_state)
+        #     #抛出异常
+        #     raise e
     def backward(ctx,grad):
         
         with torch.no_grad():
@@ -782,7 +792,7 @@ class ColumnParallelLinear(torch.nn.Module):
         layer_idx = 0,
     ):
         super(ColumnParallelLinear, self).__init__()
-        self.layer_idx = 0
+        self.layer_idx = layer_idx
         # Keep input parameters
         self.input_size = input_size
         self.output_size = output_size
@@ -933,7 +943,10 @@ class ColumnParallelLinear(torch.nn.Module):
         if ln_fun is not None:
             # bit = 2 #if self.layer_idx<16 else 4
             bit = 2 # if self.layer_idx<2 else 4
-            input_ = CustomLN_Pre.apply(input_,ln_fun,share_list,self.activation_quantization_type,self.activation_quantization_args)
+            actargs=copy.deepcopy(self.activation_quantization_args)
+            actargs["idx"]=self.layer_idx
+            actargs["module"]="ColumnParallelLinear-CustomLN_Pre"
+            input_ = CustomLN_Pre.apply(input_,ln_fun,share_list,self.activation_quantization_type,actargs)
 
         if weight is None:
             if self.weight is None:
@@ -1249,7 +1262,12 @@ class RowParallelLinear(torch.nn.Module):
             # input_ = act_fun(input_)
             # bit = 2 #if self.layer_idx <16 else 4
             bit = 2 #if self.layer_idx<2 else 4
-            input_ = CustomACT_Pre.apply(input_,act_fun,share_list,self.activation_quantization_type,self.activation_quantization_args)
+            # print(self.config)
+            actargs=copy.deepcopy(self.activation_quantization_args)
+            actargs["idx"]=self.layer_idx
+            # actargs["module"]="CustomACT_Pre"
+            actargs["module"]="RowParallelLinear-LN_ACT_RE"
+            input_ = CustomACT_Pre.apply(input_,act_fun,share_list,self.activation_quantization_type,actargs)
         if self.config._cpu_offloading_context is not None:
             if self.config._cpu_offloading_context.inside_context == True:
                 assert (
@@ -1281,7 +1299,10 @@ class RowParallelLinear(torch.nn.Module):
             allreduce_dgrad=allreduce_dgrad,
         )
         if act_fun is None:
-            output_parallel= OffloadReload.apply(output_parallel,input_parallel,self.activation_quantization_type,self.activation_quantization_args)
+            actargs=copy.deepcopy(self.activation_quantization_args)
+            actargs["idx"]=self.layer_idx
+            actargs["module"]="OffloadReload"
+            output_parallel= OffloadReload.apply(output_parallel,input_parallel,self.activation_quantization_type,actargs)
         else:
             # output_parallel= OffloadReload.apply(output_parallel,input_)
             output_parallel = CustomACT_Post.apply(output_parallel,input_parallel,act_fun,share_list)

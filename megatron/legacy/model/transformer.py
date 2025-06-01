@@ -86,7 +86,7 @@ class ParallelMLP(MegatronModule):
     state back into h hidden dimension.
     """
 
-    def __init__(self, config, is_expert=False):
+    def __init__(self, config, is_expert=False,layer_number=0):
         super(ParallelMLP, self).__init__()
         args = get_args()
 
@@ -106,6 +106,7 @@ class ParallelMLP(MegatronModule):
             gather_output=False,
             skip_bias_add=True,
             is_expert=is_expert,
+            layer_idx=layer_number
         )
 
         self.bias_gelu_fusion = False
@@ -139,6 +140,7 @@ class ParallelMLP(MegatronModule):
             skip_bias_add=True,
             input_is_parallel=True,
             is_expert=is_expert,
+            layer_idx=layer_number,
         )
 
     def forward(self, hidden_states,ln_fun = None):
@@ -565,7 +567,8 @@ class ParallelAttention(MegatronModule):
                 config=config,
                 init_method=config.init_method,
                 bias=args.add_bias_linear or args.add_qkv_bias,
-                gather_output=False)
+                gather_output=False,
+                layer_idx=self.layer_number)
         else:
             assert attention_type == AttnType.cross_attn
 
@@ -579,7 +582,8 @@ class ParallelAttention(MegatronModule):
                 config=config,
                 init_method=config.init_method,
                 bias=config.add_bias_linear,
-                gather_output=False)
+                gather_output=False,
+                layer_idx=self.layer_number)
 
             self.key_value = tensor_parallel.ColumnParallelLinear(
                 config.hidden_size,
@@ -587,7 +591,8 @@ class ParallelAttention(MegatronModule):
                 config=config,
                 init_method=config.init_method,
                 bias=config.add_bias_linear,
-                gather_output=False)
+                gather_output=False,
+                layer_idx=self.layer_number)
 
         self.core_attention = CoreAttention(self.layer_number, config,
                                             self.attn_mask_type)
@@ -606,7 +611,8 @@ class ParallelAttention(MegatronModule):
             init_method=config.output_layer_init_method,
             bias=args.add_bias_linear,
             input_is_parallel=True,
-            skip_bias_add=True)
+            skip_bias_add=True,
+            layer_idx=self.layer_number)
 
     def _checkpointed_attention_forward(self, query_layer, key_layer,
                                         value_layer, attention_mask,
@@ -910,7 +916,7 @@ class ParallelTransformerLayer(MegatronModule):
         if args.num_experts is not None:
             self.mlp = SwitchMLP(config)
         else:
-            self.mlp = ParallelMLP(config)
+            self.mlp = ParallelMLP(config,layer_number=self.layer_number)
 
         # Set bias+dropout+add fusion grad_enable execution handler.
         TORCH_MAJOR = int(torch.__version__.split('.')[0])
