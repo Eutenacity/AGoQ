@@ -1,6 +1,9 @@
 
+# [AGoQ: Activation and Gradient Quantization for Memory-Efficient Distributed Training of LLMs](https://arxiv.org/abs/2605.00539)
 
-# AGoQ: Activation and Gradient Quantization for Memory-Efficient Distributed Training of LLMs
+[![Paper](https://img.shields.io/badge/Paper-arXiv-red)](https://arxiv.org/abs/2605.00539)
+
+This repository contains the official implementation of **AGoQ**, a memory-efficient distributed training system for Large Language Models (LLMs). AGoQ significantly reduces GPU memory requirements by integrating layer-aware activation quantization and precision-preserved gradient quantization.
 
 This repository contains the official implementation of **AGoQ**, a memory-efficient distributed training system for Large Language Models (LLMs). AGoQ significantly reduces GPU memory requirements by integrating layer-aware activation quantization and precision-preserved gradient quantization.
 
