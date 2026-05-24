@@ -59,6 +59,6 @@ If you find this work helpful in your research, please consider citing our paper
 
 ```
 
-## Acknowledgments
+## MindSpeed
 
 This project is built upon [MindSpeed-LLM](https://gitee.com/ascend/MindSpeed-LLM/). We sincerely thank the developers for their foundational work.
