@@ -1,7 +1,4 @@
 
-Here is a standard, professional `README.md` template in English based on the paper, incorporating your requested links and citations.
-
----
 
 # AGoQ: Activation and Gradient Quantization for Memory-Efficient Distributed Training of LLMs
 
